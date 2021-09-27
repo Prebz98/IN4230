@@ -431,6 +431,35 @@ void print_cache(){
     }
 }
 
+void handle_new_client(struct pollfd *pending_connections, int client_fd){
+    for (int y=0; y<MAX_EVENTS; y++){
+        if (pending_connections[y].fd == 0){
+            pending_connections[y].fd = client_fd;
+            pending_connections[y].events = POLLIN | POLLHUP;
+            break;
+        }
+    }
+}
+
+void identify_unix_client(struct pollfd *fds, int index){
+    char buffer[BUFSIZE];
+    read(fds[index].fd, buffer, 1);
+    uint8_t identifier = buffer[0];
+    
+    // a ping host
+    if (identifier == 0x02){
+        // moving the fd to the right spot
+        memcpy(&fds[2], &fds[index], sizeof(struct pollfd));
+        memset(&fds[index], 0, sizeof(struct pollfd));
+    }
+    // the routing daemon
+    else if (identifier == 0x04) {
+        // moving the fd to the right spot
+        memcpy(&fds[3], &fds[index], sizeof(struct pollfd));
+        memset(&fds[index], 0, sizeof(struct pollfd));
+    }
+}
+
 void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t mip_addr){
     /*
     * the flow of the program
@@ -450,15 +479,16 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
     uint8_t send_raw_buffer[BUFSIZE];
     int res, sock_client;
     struct sockaddr_ll senders_iface[MAX_IF];
+    struct pollfd *pending_connections = &fds[MAX_EVENTS];
 
     //if termination is false, then the program will not stop
     //if termination is true, the program stops after polling for 10 seconds with inactivity
-    while ((res = poll(fds, MAX_EVENTS, timeout_msecs)) > 0 || !termination){
+    while ((res = poll(fds, MAX_EVENTS+NUMBER_OF_UNIX_CONNECTIONS, timeout_msecs)) > 0 || !termination){
         if (debug_mode){
             printf(LINE);
             printf("%d events found\n", res);
             }
-        for (int i=0; i<MAX_EVENTS; i++){
+        for (int i=0; i<MAX_EVENTS+NUMBER_OF_UNIX_CONNECTIONS; i++){
 
             // client has disconnected
             if (fds[i].revents & POLLHUP){
@@ -480,13 +510,7 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                     if (debug_mode){
                         printf("Client accepted\n");
                     }
-                    for (int y=0; y<MAX_EVENTS; y++){
-                        if (fds[y].fd == 0){
-                            fds[y].fd = sock_client;
-                            fds[y].events = POLLIN | POLLHUP;
-                            break;
-                        }
-                    }
+                    handle_new_client(pending_connections, sock_client);
                 }
             //new message in raw
             } else if (i == 1 && fds[i].revents & POLLIN) {
@@ -558,6 +582,10 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                     }
                 }
             }
+            // client wants to identify
+            else if (fds[i].revents & POLLIN && (i >= MAX_EVENTS)) {
+                identify_unix_client(fds, i);
+            }
             // a client has sent a message
             else if (fds[i].revents & POLLIN){
                 // read from socket 
@@ -565,7 +593,7 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                 uint8_t mip_dst;
                 int index;
                 memset(buffer, 0, sizeof(buffer));
-                read(sock_client, buffer, sizeof(buffer));
+                read(fds[i].fd, buffer, sizeof(buffer));
                 char *msg = &buffer[1];
                 mip_dst = buffer[0];
                 if (debug_mode){
@@ -621,7 +649,7 @@ int main(int argc, char** argv) {
     //declare variables
     struct sockaddr_un serv_addr[1];
     int sock_server=0, raw_sock = 0;
-    struct pollfd fds[MAX_EVENTS];
+    struct pollfd fds[MAX_EVENTS + NUMBER_OF_UNIX_CONNECTIONS];
     int timeout_msecs; 
     short unsigned int protocol_raw;
     struct sockaddr_ll so_names[MAX_IF];

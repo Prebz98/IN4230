@@ -1,3 +1,4 @@
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -114,6 +115,15 @@ void write_to_server(char *msg, uint8_t mip_dst){
     printf("Sent message:\t\"%s\"\tto MIP-address: %d\n", sdu, mip_dst);
 }
 
+void write_identifying_msg(){
+    char buffer[BUFSIZE];
+    memset(buffer, 0, BUFSIZE);
+    uint8_t sdu_type = 0x02; //ping sdu type
+    memset(buffer, sdu_type, 1);
+    write(sock_server, buffer, 1);
+    printf("Identify myself for daemon.\n");
+}
+
 void read_from_socket(char* expected_resp){
     /*
     * reading from socket
@@ -151,6 +161,7 @@ int main(int argc, char* argv[]) {
     strcpy(expected_resp, "PONG:");
     strcat(expected_resp, msg);
     socket_setup(path);
+    write_identifying_msg(mip_dst);
     write_to_server(msg, mip_dst);
     clock_t start = clock();
 

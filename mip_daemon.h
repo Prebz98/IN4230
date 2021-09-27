@@ -8,6 +8,7 @@
 #define CACHE_TABLE_LEN 4
 #define MAX_IF 4
 #define DST_MAC_ADDR {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
+#define NUMBER_OF_UNIX_CONNECTIONS 2
 
 struct ether_frame {
     uint8_t dst_addr[6];
@@ -18,7 +19,7 @@ struct ether_frame {
 
 struct arp_sdu {
     uint8_t type : 1;
-    uint16_t address : 8; //:8 eller ikke
+    uint16_t address : 8;
     uint32_t padding : 23;
 }__attribute__((packed));
 

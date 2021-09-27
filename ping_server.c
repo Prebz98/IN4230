@@ -100,6 +100,15 @@ void write_to_socket(char *msg){
     printf(LINE);
 }
 
+void write_identifying_msg(){
+    char buffer[BUFSIZE];
+    memset(buffer, 0, BUFSIZE);
+    uint8_t sdu_type = 0x02; //ping sdu type
+    memset(buffer, sdu_type, 1);
+    write(sock_server, buffer, 1);
+    printf("Identify myself for daemon.\n");
+}
+
 void read_from_socket(){
     /*
     * Listens to the socket until it receives a message
@@ -122,6 +131,7 @@ int main(int argc, char** argv){
     char path[BUFSIZE];
     argparser(argc, argv, path);
     setup_unix_socket(path);
+    write_identifying_msg();
     printf(LINE);
 
     while(!done){
