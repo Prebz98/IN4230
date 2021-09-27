@@ -46,7 +46,7 @@ runDaemonC: mip_daemon
 	${MIP_DAEMON_C}
 
 runClientA: ping_client
-	${MIP_CLIENT_A}
+	${MIP_CLIENT_AB}
 
 runClientBA: ping_client
 	${MIP_CLIENT_BA}
@@ -55,7 +55,7 @@ runClientBC: ping_client
 	${MIP_CLIENT_BC}
 
 runClientC: ping_client
-	${MIP_CLIENT_C}
+	${MIP_CLIENT_CB}
 
 runServerA: ping_server
 	${MIP_SERVER_A}
