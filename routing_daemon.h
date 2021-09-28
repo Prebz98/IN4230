@@ -1,9 +1,9 @@
 
 #include <stdint.h>
+#include <sys/un.h>
 
 struct node {
-    struct node *next;
     uint8_t mip;
     int distance;
-    // mac or interface
+    struct sockaddr_un next_hop;
 };

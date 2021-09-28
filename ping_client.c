@@ -161,7 +161,7 @@ int main(int argc, char* argv[]) {
     strcpy(expected_resp, "PONG:");
     strcat(expected_resp, msg);
     socket_setup(path);
-    write_identifying_msg(mip_dst);
+    write_identifying_msg();
     write_to_server(msg, mip_dst);
     clock_t start = clock();
 
