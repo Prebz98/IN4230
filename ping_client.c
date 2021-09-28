@@ -72,14 +72,14 @@ void error(int ret, char *msg) {
     }
 }
 
-void socket_setup(char *path) {
+void socket_setdown(char *path) {
     /*
-    * setting up unix socket, and connecting to it
+    * setting down unix socket, and connecting to it
     * path: path to unix socket fd
     */
 
     if ((sock_server = socket(AF_UNIX, SOCK_SEQPACKET, 0)) < 0) {
-        error(sock_server, "socket setup failed\n");
+        error(sock_server, "socket setdown failed\n");
     }
     fcntl(sock_server, F_SETFL, O_NONBLOCK);
     memset(serv_addr, 0, sizeof(struct sockaddr_un));
@@ -104,15 +104,14 @@ void write_to_server(char *msg, uint8_t mip_dst){
 
     char buffer[BUFSIZE];
     memset(buffer, 0, sizeof(buffer));
-    struct unix_packet up;
-    memset(&up, 0, sizeof(struct unix_packet));
-    up.mip_dst = mip_dst;
-    char sdu[BUFSIZE];
-    strcpy(sdu, "PING:");
-    strcat(sdu, msg);
-    strcpy(up.msg, sdu);
-    write(sock_server, &up, sizeof(up));
-    printf("Sent message:\t\"%s\"\tto MIP-address: %d\n", sdu, mip_dst);
+    struct unix_packet down;
+    memset(&down, 0, sizeof(struct unix_packet));
+    down.mip = mip_dst;
+    down.ttl = 0;
+    strcpy(down.msg, "PING:");
+    strcat(down.msg, msg);
+    write(sock_server, &down, sizeof(down));
+    printf("Sent message:\t\"%s\"\tto MIP-address: %d\n", down.msg, mip_dst);
 }
 
 void write_identifying_msg(){
@@ -139,12 +138,13 @@ void read_from_socket(char* expected_resp){
         done = true;
         return;
     }
-    if (strcmp(&buffer[1], expected_resp) == 0){
-        printf("Message recieved: %s\n", &buffer[1]);
+    struct unix_packet *down = (struct unix_packet*)buffer;
+    if (strcmp(down->msg, expected_resp) == 0){
+        printf("Message recieved: %s\n", down->msg);
         done = true;
         return;
-    }else if (strcmp(&buffer[1], expected_resp) > 0) {
-        printf("Not match: %s\n", &buffer[1]);
+    }else if (strcmp(down->msg, expected_resp) > 0) {
+        printf("Not match: %s\n", down->msg);
     }
 }
 
@@ -160,7 +160,7 @@ int main(int argc, char* argv[]) {
     printf(LINE);
     strcpy(expected_resp, "PONG:");
     strcat(expected_resp, msg);
-    socket_setup(path);
+    socket_setdown(path);
     write_identifying_msg();
     write_to_server(msg, mip_dst);
     clock_t start = clock();

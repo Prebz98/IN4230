@@ -25,10 +25,12 @@ MIP_SERVER_A = ./ping_server ${SOCK_A}
 MIP_SERVER_B = ./ping_server ${SOCK_B}
 MIP_SERVER_C = ./ping_server ${SOCK_C}
 
-all: ping_client mip_daemon ping_server
+ROUTING_DAEMON_A = ./routing_daemon ${SOCK_A}
 
-mip_daemon: mip_daemon.c
-	gcc -g mip_daemon.c -o mip_daemon
+all: ping_client mip_daemon ping_server routing_daemon
+
+mip_daemon: mip_daemon.c mip_daemon_utils.c
+	gcc -g mip_daemon.c mip_daemon_utils.c -o mip_daemon
 
 ping_client: ping_client.c
 	gcc -g ping_client.c -o ping_client
@@ -36,14 +38,17 @@ ping_client: ping_client.c
 ping_server: ping_server.c
 	gcc -g ping_server.c -o ping_server
 
+routing_daemon: routing_daemon.c routing_utils.c
+	gcc -g routing_daemon.c routing_utils.c -o routing_daemon
+
 runDaemonA: mip_daemon
-	${MIP_DAEMON_A}
+	${MIP_DAEMON_A_t}
 
 runDaemonB: mip_daemon
-	${MIP_DAEMON_B}
+	${MIP_DAEMON_B_t}
 
 runDaemonC: mip_daemon
-	${MIP_DAEMON_C}
+	${MIP_DAEMON_C_t}
 
 runClientA: ping_client
 	${MIP_CLIENT_AB}
@@ -65,6 +70,9 @@ runServerB: ping_server
 
 runServerC: ping_server
 	${MIP_SERVER_C}
+
+runRouterA: routing_daemon
+	${ROUTING_DAEMON_A}
 
 clean: 
 	rm -f *.o ping_client ping_server mip_daemon

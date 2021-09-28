@@ -85,18 +85,19 @@ void setup_unix_socket(char *path) {
     return;
 }
 
-void write_to_socket(char *msg){
+void write_to_socket(char *msg, uint8_t mip){
     /*
     * replace PING with PONG and send the message back
     * msg: message to be written
     */
-    char response[BUFSIZE];
-    uint8_t mip_dst = msg[0];
-    response[0] = mip_dst;
-    strcpy(&response[1], "PONG:");
-    strcpy(&response[6], &msg[6]);
-    write(sock_server, response, strlen(response));
-    printf("Sent back message: %s\n", response);
+    struct unix_packet down;
+    memset(&down, 0, sizeof(struct unix_packet));
+    down.mip = mip;
+    down.ttl = 0;
+    strcpy(down.msg, "PONG:");
+    strcpy(&down.msg[5], &msg[5]);
+    write(sock_server, &down, sizeof(down));
+    printf("Sent back message: %s\n", down.msg);
     printf(LINE);
 }
 
@@ -121,8 +122,9 @@ void read_from_socket(){
         done = true;
         return;
     }
-    printf("Message recieved: %s\n", &buffer[1]);
-    write_to_socket(buffer);
+    struct unix_packet *down = (struct unix_packet*)buffer;
+    printf("Message recieved: %s\n", down->msg);
+    write_to_socket(down->msg, down->mip);
 }
 
 int main(int argc, char** argv){

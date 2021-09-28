@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/un.h>
+#include <unistd.h>
+#include "routing_utils.h"
 
 void error(int ret, char *msg) {
     //program error
@@ -28,6 +30,7 @@ void socket_setup(char *path, int *sock_server, struct sockaddr_un *serv_addr) {
     }
     //fcntl(*sock_server, F_SETFL, O_NONBLOCK);
     memset(serv_addr, 0, sizeof(struct sockaddr_un));
+    serv_addr->sun_family = AF_UNIX;
     strcpy(serv_addr->sun_path, path);
     if ((strlen(path)) < strlen(serv_addr->sun_path)){
         error(-1, "Path is too long");
@@ -47,6 +50,19 @@ void write_identifying_msg(int sock_server){
     memset(buffer, 0, BUFSIZE);
     uint8_t sdu_type = 0x04; //routing sdu type
     memset(buffer, sdu_type, 1);
+    write(sock_server, buffer, 1);
     printf("Identify myself for daemon\n");
 }
+
+void write_hello(int sock_server){
+    /*
+    * write hello to all neighbors
+    * sock_server: socket fd
+    */
+
+    char *message = "HLO";
+    write(sock_server, message, strlen(message));
+    printf("Sent HELLO\n");
+}
+
 

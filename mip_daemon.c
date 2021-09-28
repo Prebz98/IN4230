@@ -127,7 +127,7 @@ void listen_unix_socket(int *sock_server, struct pollfd *fds){
     fds[0].events = POLLHUP | POLLIN;
 }
 
-void write_to_unix_socket(char *msg, uint8_t mip_dst, int sock_server){
+void write_to_unix_socket(char *msg, uint8_t mip_dst, int sock_server, int ttl){
     /*
     * writing message to host with unix socket
     * msg: message to be sent
@@ -137,7 +137,8 @@ void write_to_unix_socket(char *msg, uint8_t mip_dst, int sock_server){
     char buffer[BUFSIZE];
     memset(buffer, 0, sizeof(buffer));
     struct unix_packet up;
-    up.mip_dst = mip_dst;
+    up.mip = mip_dst;
+    up.ttl = ttl;
     strcpy(up.msg, msg);
     write(sock_server, &up, sizeof(up));
 }
@@ -548,11 +549,11 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                         if (debug_mode){
                             printf("It was an ARP responce from %d\n",hdr->src);
                         }
-                        if (waiting_message.mip_dst != sdu->address){
+                        if (waiting_message.mip != sdu->address){
                             printf("Message to %d is no longer available\n", sdu->address);
                         }
                         //get message to be sent
-                        uint8_t mip_dst = waiting_message.mip_dst;
+                        uint8_t mip_dst = waiting_message.mip;
                         char *msg = waiting_message.msg;
                         
                         //create packet
@@ -573,18 +574,28 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                     char *translation = (char*)raw_buffer; 
                     struct unix_packet up;
                     memset(&up, 0, sizeof(struct unix_packet));
-                    up.mip_dst = hdr->src;
+                    up.mip = hdr->src;
+                    up.ttl = 0;
                     strcpy(up.msg, &translation[index]); 
-                    //assumes that there is only one unix socket connection
                     write(fds[2].fd, &up, sizeof(up));
                     if (debug_mode){
                         printf("\nSent message to client with unix socket\nMessage: %s\n", &translation[index]);
                     }
                 }
+                // its a routing message
+                else if (hdr->sdu_type == 0x04) {
+                    //her skjer det noe!!!TODO
+                    char *translation = (char*)&raw_buffer[sizeof(struct mip_hdr)];
+                    send_to_router(translation, hdr->src, fds[3].fd);
+                }
             }
             // client wants to identify
             else if (fds[i].revents & POLLIN && (i >= MAX_EVENTS)) {
                 identify_unix_client(fds, i);
+            }
+            // routing daemon has sent a message
+            else if (fds[i].revents & POLLIN && (i==3)) {
+                handle_routing_msg(fds, mip_addr);
             }
             // a client has sent a message
             else if (fds[i].revents & POLLIN){
@@ -594,17 +605,17 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                 int index;
                 memset(buffer, 0, sizeof(buffer));
                 read(fds[i].fd, buffer, sizeof(buffer));
-                char *msg = &buffer[1];
-                mip_dst = buffer[0];
+                struct unix_packet *up = (struct unix_packet*)buffer;
+                mip_dst = up->mip;
                 if (debug_mode){
                     printf("Client has sent a message\n");
                     printf("DST MIP address: %d\n", mip_dst);
-                    printf("Message: %s\n", msg);
+                    printf("Message: %s\n", up->msg);
                 }
                 // mip is in cache-> send it 
                 if ((index = check_cache(mip_dst)) != -1){
-                    char *msg = &buffer[1];
-                    mip_dst = buffer[0];
+                    char *msg = up->msg;
+                    mip_dst = up->mip;
                     //create packet and send
                     struct mip_hdr mip_hdr = create_mip_hdr(mip_dst, mip_addr, 1, strlen(msg), 0x02);
                     memset(raw_buffer, 0, BUFSIZE);
@@ -616,8 +627,9 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                 }else { //mip not in cache -> arp-req
                     //saving waiting message
                     struct unix_packet packet_to_save;
-                    packet_to_save.mip_dst = mip_dst;
-                    strcpy(packet_to_save.msg, msg);
+                    packet_to_save.mip = mip_dst;
+                    packet_to_save.ttl = 0;
+                    strcpy(packet_to_save.msg, up->msg);
                     waiting_message = packet_to_save;
 
                     //creating arp request
