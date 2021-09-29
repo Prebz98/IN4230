@@ -26,6 +26,8 @@ MIP_SERVER_B = ./ping_server ${SOCK_B}
 MIP_SERVER_C = ./ping_server ${SOCK_C}
 
 ROUTING_DAEMON_A = ./routing_daemon ${SOCK_A}
+ROUTING_DAEMON_B = ./routing_daemon ${SOCK_B}
+ROUTING_DAEMON_C = ./routing_daemon ${SOCK_C}
 
 all: ping_client mip_daemon ping_server routing_daemon
 
@@ -74,8 +76,11 @@ runServerC: ping_server
 runRouterA: routing_daemon
 	${ROUTING_DAEMON_A}
 
+runRouterB: routing_daemon
+	${ROUTING_DAEMON_B}
+
 clean: 
-	rm -f *.o ping_client ping_server mip_daemon
+	rm -f *.o ping_client ping_server mip_daemon routing_daemon
 
 valgrindDaemonA: mip_daemon
 	${VALGRIND} ${MIP_DAEMON_A}

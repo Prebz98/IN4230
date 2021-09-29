@@ -140,6 +140,10 @@ void write_to_unix_socket(char *msg, uint8_t mip_dst, int sock_server, int ttl){
     up.mip = mip_dst;
     up.ttl = ttl;
     strcpy(up.msg, msg);
+    if (sock_server == 0){
+        printf("Routing daemon not connected\n");
+        return;
+    }
     write(sock_server, &up, sizeof(up));
 }
 
@@ -584,7 +588,6 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                 }
                 // its a routing message
                 else if (hdr->sdu_type == 0x04) {
-                    //her skjer det noe!!!TODO
                     char *translation = (char*)&raw_buffer[sizeof(struct mip_hdr)];
                     send_to_router(translation, hdr->src, fds[3].fd);
                 }
