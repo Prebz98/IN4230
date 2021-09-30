@@ -1,8 +1,8 @@
 VALGRIND = valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes
 
-MIP_A = 1
-MIP_B = 2
-MIP_C = 3
+MIP_A = 10
+MIP_B = 20
+MIP_C = 30
 SOCK_A = tmp
 SOCK_B = tmp2
 SOCK_C = tmp3

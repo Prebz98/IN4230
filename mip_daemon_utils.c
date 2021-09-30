@@ -11,8 +11,9 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip){
     char buffer[BUFSIZE];
     memset(buffer, 0, BUFSIZE);
     read(fds[3].fd, buffer, BUFSIZE);
+    struct unix_packet *packet = (struct unix_packet*)buffer;
 
-    if (0 == strcmp(buffer, ROUTING_HELLO)){
+    if (0 == memcmp(packet->msg, ROUTING_HELLO, 3)){
         printf("Received hello from router\n");
         uint8_t raw_buffer[BUFSIZE];
         memset(raw_buffer, 0, BUFSIZE);
@@ -32,11 +33,10 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip){
         
     }
     //variabel her som er første del av bufferen
-    else if (0 == strcmp(buffer[0:3], ROUTING_UPDATE)) {
+    else if (0 == memcmp(packet->msg, ROUTING_UPDATE, 3)) {
         printf("Received an update\n");
+
     }
-    printf("HERE %s\n", buffer);
-    printf("%lu\n", strlen(buffer));
 }
 
 void send_to_router(char *msg, uint8_t mip_dst, int sock_server){
