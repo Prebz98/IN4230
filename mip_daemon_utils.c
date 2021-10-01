@@ -32,23 +32,28 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
         }
         
     }
-    //variabel her som er første del av bufferen
+    //ROUTING_UPDATE is first part of buffer
     else if (0 == memcmp(packet->msg, ROUTING_UPDATE, 3)) {
         printf("Received an update\n");
         uint8_t raw_buffer[BUFSIZE];
         memset(raw_buffer, 0, BUFSIZE);
 
-        struct mip_hdr hdr = create_mip_hdr(packet->mip, my_mip, 1, strlen(packet->msg), 0x04);
+        int number_of_pairs = packet->msg[3];
+        int message_size = 4+(number_of_pairs*sizeof(struct update_pair));
+        
+
+        struct mip_hdr hdr = create_mip_hdr(packet->mip, my_mip, 1, message_size, 0x04);
         memcpy(raw_buffer, &hdr, sizeof(struct mip_hdr));
-        memcpy(&raw_buffer[sizeof(struct mip_hdr)], packet->msg, strlen(packet->msg));
+        memcpy(&raw_buffer[sizeof(struct mip_hdr)], packet->msg, message_size);
 
         int cache_index = check_cache(packet->mip);
         struct sockaddr_ll interface;
+
         if (cache_index == -1){
             //broadcast?
         }else {
             interface = cache_table[cache_index].iface;
-            send_raw_packet(&fds[1].fd, &interface, raw_buffer, sizeof(struct mip_hdr)+strlen(packet->msg), cache_table[cache_index].mac);
+            send_raw_packet(&fds[1].fd, &interface, raw_buffer, sizeof(struct mip_hdr)+message_size, cache_table[cache_index].mac);
         }
 
     }

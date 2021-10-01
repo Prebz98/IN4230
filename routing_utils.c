@@ -82,13 +82,13 @@ int handle_hello(uint8_t mip, struct node *routing_list){
 
     struct node *i = routing_list;
     
-    if (i->mip == mip){
-        if (i->distance != 1){
-            i->distance = 1;
-            return 1;
-        }
-        return 0;
-    }
+    // if (i->mip == mip){
+    //     if (i->distance != 1){
+    //         i->distance = 1;
+    //         return 1;
+    //     }
+    //     return 0;
+    // }
     while (i->next != NULL) {
         i = i->next;
         if (i->mip == mip){
@@ -126,15 +126,15 @@ void free_linked_list(struct node *list){
     free(x);
 }
 
-void find_targets_for_update(int mip_caused_update, int targets[], struct node routing_list){
-    /*
-    * finds all mip addresses to send update to
-    * mip_caused_update: the node that sent us new data
-    *  we will not send the update back to that node.  
-    * targets: buffer to store targets for update
-    */
+void print_routing_list(struct node *list){
+    printf("\nRouting list:\n");
+    struct node *x = list;
 
-    
+    while (x->next != NULL) {
+        x = x->next;
+        printf("{MIP: %d - Distance: %d - Next hop: %d}\n", x->mip, x->distance, x->next_mip);
+    }
+    printf("\n");
 }
 
 void send_update(struct node *routing_list, int sock_server, int mip_caused_update){
@@ -145,38 +145,59 @@ void send_update(struct node *routing_list, int sock_server, int mip_caused_upda
     * mip_caused_update: mip that the packet will not be sent to
     */
     struct node *x = routing_list;
-    char buffer[BUFSIZE];
-    memset(buffer, 0, BUFSIZE);
-    memcpy(buffer, ROUTING_UPDATE, 3);
-    struct update_pair *packet_list = (struct update_pair *)&buffer[3];
+    char update_buffer[BUFSIZE];
+    memset(update_buffer, 0, BUFSIZE);
+    memcpy(update_buffer, ROUTING_UPDATE, 3);
+    //save one slot for number of pairs
+    struct update_pair *pair_list = (struct update_pair *)&update_buffer[4];
     int index = 0;
     //routing list has one empty node at the beginning
     // so we skip that one
     // here we are createing the response to be sent
     while(x->next != NULL){
         x = x->next;
-        struct update_pair packet;
-        packet.mip_target = x->mip;
-        packet.distance = x->distance;
-        packet_list[index] = packet;
+        struct update_pair pair;
+        pair.mip_target = x->mip;
+        pair.distance = x->distance;
+        memcpy(&pair_list[index], &pair, sizeof(struct update_pair));
         index++;
     }
+    
+    //number of packets
+    update_buffer[3] = index;
+    int message_size = 4+(index*sizeof(struct update_pair));
 
     //create a unix packet
-    struct unix_packet packet;
-    packet.ttl = 1;
-    strcpy(packet.msg, buffer);
+    char* buffer_to_send[BUFSIZE];
+    memset(buffer_to_send, 0, BUFSIZE);
+    struct unix_packet *packet = (struct unix_packet*)buffer_to_send;
+    packet->ttl = 1;
+    memcpy(packet->msg, update_buffer, message_size);
 
     //sending to neighbors, except the one that caused the update
     x = routing_list;
     while (x->next != NULL) {
         x = x->next;
         if (x->distance == 1 && x->mip != mip_caused_update) {
-            packet.mip = x->mip;
-            write(sock_server, &packet, sizeof(struct unix_packet));
-            printf("Sent update to %d\n", packet.mip);
+            packet->mip = x->mip;
+
+            write(sock_server, packet, message_size);
+            printf("Sent update to %d, %d\n", packet->mip, *(packet->msg+4));
         }
     }
+    print_routing_list(routing_list);
+}
+
+void update_routing_list(struct unix_packet *packet, struct node *routing_list){
+    /*
+    * updating the routing table
+    * packet: the update packet received
+    * routing_list: current routing list
+    */
+
+
+    struct update_pair *pair = (struct update_pair*)&(packet->msg[4]);
+    printf("First pair %d %d\n", pair[0].mip_target, pair[0].distance);
 }
 
 void read_from_socket(int sock_server, char* buffer, bool *done, struct node *routing_list){
@@ -191,13 +212,20 @@ void read_from_socket(int sock_server, char* buffer, bool *done, struct node *ro
         *done = true;
         return;
     }
+
     struct unix_packet *packet = (struct unix_packet*)buffer;
-    printf("Packet received with msg: %s from mip %d\n", packet->msg, packet->mip);
-    if (strcmp(packet->msg, ROUTING_HELLO) == 0){
+    printf("Packet received with msg: \"%s\" from mip %d\n", packet->msg, packet->mip);
+
+    //its a hello message
+    if (memcmp(packet->msg, ROUTING_HELLO, 3) == 0){
         int res = handle_hello(packet->mip, routing_list);
         if (res == 1){
             send_update(routing_list, sock_server, packet->mip);
         }
+    }
+    //its an update
+    else if (memcmp(packet->msg, ROUTING_UPDATE, 3) == 0) {
+         update_routing_list(packet, routing_list);
     }
 }
 

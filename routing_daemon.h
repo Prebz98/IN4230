@@ -7,13 +7,13 @@
 struct node {
     struct node* next;
     uint8_t mip;
-    int distance;
+    uint8_t distance;
     uint8_t next_mip;
 };
 
 struct update_pair {
     uint8_t mip_target;
-    int distance;
+    uint8_t distance;
 };
 
 void error(int ret, char* msg);

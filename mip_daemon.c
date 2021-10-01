@@ -431,10 +431,10 @@ void print_cache(){
     */
     printf("In cache:\n");
     for (int i=0; i<cache_current_len; i++){
-        printf("MIP: %d - MAC: ", cache_table[i].mip);
+        printf("\tMIP: %d - MAC: ", cache_table[i].mip);
         print_mac(cache_table[i].iface.sll_addr);
-        printf("\n");
     }
+    printf("\n");
 }
 
 void handle_new_client(struct pollfd *pending_connections, int client_fd){

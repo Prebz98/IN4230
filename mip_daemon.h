@@ -38,6 +38,11 @@ struct cache {
     uint8_t mac[6];
 };
 
+struct update_pair {
+    uint8_t mip_target;
+    uint8_t distance;
+};
+
 // closing socket and free allocated memory
 void clear_memory();
 void print_cache();
