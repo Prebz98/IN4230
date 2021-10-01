@@ -79,6 +79,9 @@ runRouterA: routing_daemon
 runRouterB: routing_daemon
 	${ROUTING_DAEMON_B}
 
+runRouterC: routing_daemon
+	${ROUTING_DAEMON_C}
+
 clean: 
 	rm -f *.o ping_client ping_server mip_daemon routing_daemon
 

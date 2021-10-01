@@ -433,6 +433,7 @@ void print_cache(){
     for (int i=0; i<cache_current_len; i++){
         printf("MIP: %d - MAC: ", cache_table[i].mip);
         print_mac(cache_table[i].iface.sll_addr);
+        printf("\n");
     }
 }
 
@@ -598,7 +599,7 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
             }
             // routing daemon has sent a message
             else if (fds[i].revents & POLLIN && (i==3)) {
-                handle_routing_msg(fds, mip_addr);
+                handle_routing_msg(fds, mip_addr, cache_table);
             }
             // a client has sent a message
             else if (fds[i].revents & POLLIN){

@@ -126,19 +126,23 @@ void free_linked_list(struct node *list){
     free(x);
 }
 
-void find_targets_for_update(int mip_caused_update){
+void find_targets_for_update(int mip_caused_update, int targets[], struct node routing_list){
     /*
     * finds all mip addresses to send update to
     * mip_caused_update: the node that sent us new data
-    * we will not send the update back to that node.  
+    *  we will not send the update back to that node.  
+    * targets: buffer to store targets for update
     */
+
+    
 }
 
-void send_update(struct node *routing_list, int sock_server){
+void send_update(struct node *routing_list, int sock_server, int mip_caused_update){
     /*
     * sends an update message with the entire routing table
     * routing_list: the routing table that we will send
     * sock_server: socket fd to send through
+    * mip_caused_update: mip that the packet will not be sent to
     */
     struct node *x = routing_list;
     char buffer[BUFSIZE];
@@ -146,9 +150,9 @@ void send_update(struct node *routing_list, int sock_server){
     memcpy(buffer, ROUTING_UPDATE, 3);
     struct update_pair *packet_list = (struct update_pair *)&buffer[3];
     int index = 0;
-    
     //routing list has one empty node at the beginning
     // so we skip that one
+    // here we are createing the response to be sent
     while(x->next != NULL){
         x = x->next;
         struct update_pair packet;
@@ -158,14 +162,21 @@ void send_update(struct node *routing_list, int sock_server){
         index++;
     }
 
-    //send the buffer with the data
+    //create a unix packet
     struct unix_packet packet;
-    packet.mip = 10; //TODO
     packet.ttl = 1;
     strcpy(packet.msg, buffer);
 
-    write(sock_server, &packet, sizeof(struct unix_packet));
-    printf("Sent update\n");
+    //sending to neighbors, except the one that caused the update
+    x = routing_list;
+    while (x->next != NULL) {
+        x = x->next;
+        if (x->distance == 1 && x->mip != mip_caused_update) {
+            packet.mip = x->mip;
+            write(sock_server, &packet, sizeof(struct unix_packet));
+            printf("Sent update to %d\n", packet.mip);
+        }
+    }
 }
 
 void read_from_socket(int sock_server, char* buffer, bool *done, struct node *routing_list){
@@ -185,7 +196,7 @@ void read_from_socket(int sock_server, char* buffer, bool *done, struct node *ro
     if (strcmp(packet->msg, ROUTING_HELLO) == 0){
         int res = handle_hello(packet->mip, routing_list);
         if (res == 1){
-            send_update(routing_list, sock_server);
+            send_update(routing_list, sock_server, packet->mip);
         }
     }
 }
