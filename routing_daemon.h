@@ -4,6 +4,8 @@
 #include <sys/un.h>
 #include <stdbool.h>
 
+#define MAX_DISTANCE 254
+
 struct node {
     struct node* next;
     uint8_t mip;
