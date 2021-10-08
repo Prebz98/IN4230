@@ -94,7 +94,7 @@ void socket_setdown(char *path) {
     }
 }
 
-void write_to_server(char *msg, uint8_t mip_dst){
+void write_to_server(char *msg, uint8_t msg_size, uint8_t mip_dst){
     /*
     * sending message to daemon
     * mip address first 8 bits, then msg
@@ -102,16 +102,22 @@ void write_to_server(char *msg, uint8_t mip_dst){
     * mip_dst: MIP destination
     */
 
+    int total_msg_size = 7+msg_size;
     char buffer[BUFSIZE];
-    memset(buffer, 0, sizeof(buffer));
-    struct unix_packet down;
-    memset(&down, 0, sizeof(struct unix_packet));
-    down.mip = mip_dst;
-    down.ttl = 0;
-    strcpy(down.msg, "PING:");
-    strcat(down.msg, msg);
-    write(sock_server, &down, sizeof(down));
-    printf("Sent message:\t\"%s\"\tto MIP-address: %d\n", down.msg, mip_dst);
+    memset(buffer, 0, BUFSIZE);
+    struct unix_packet *down = (struct unix_packet*)buffer;
+    down->mip = mip_dst;
+    down->ttl = 0;
+    memcpy(down->msg, "PING:", 5);
+    memcpy(down->msg+5, msg, msg_size);
+
+    //32bit align
+    int rest = total_msg_size % 4;
+    total_msg_size += rest ? 4-rest : 0; 
+
+    int rc;
+    rc = write(sock_server, buffer, total_msg_size);
+    printf("Sent %d bytes to:\t\"%s\"\tto MIP-address: %d\n", rc, down->msg, mip_dst);
 }
 
 void write_identifying_msg(){
@@ -162,7 +168,7 @@ int main(int argc, char* argv[]) {
     strcat(expected_resp, msg);
     socket_setdown(path);
     write_identifying_msg();
-    write_to_server(msg, mip_dst);
+    write_to_server(msg, strlen(msg), mip_dst);
     clock_t start = clock();
 
     while(!done){

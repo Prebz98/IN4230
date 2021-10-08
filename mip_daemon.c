@@ -577,12 +577,14 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                 }else if (hdr->sdu_type == 0x02) {
                     int index = sizeof(struct mip_hdr);
                     char *translation = (char*)raw_buffer; 
+                    int total_size = hdr->sdu_len+2;
                     struct unix_packet up;
                     memset(&up, 0, sizeof(struct unix_packet));
                     up.mip = hdr->src;
                     up.ttl = 0;
-                    strcpy(up.msg, &translation[index]); 
-                    write(fds[2].fd, &up, sizeof(up));
+                    memcpy(up.msg, &translation[index], hdr->sdu_len);
+                    // strcpy(up.msg, &translation[index]); 
+                    write(fds[2].fd, &up, total_size);
                     if (debug_mode){
                         printf("\nSent message to client with unix socket\nMessage: %s\n", &translation[index]);
                     }
