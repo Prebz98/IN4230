@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/poll.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include "mip_daemon.h"
 
@@ -40,7 +41,6 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
 
         int number_of_pairs = packet->msg[3];
         int message_size = 4+(number_of_pairs*sizeof(struct update_pair));
-        
 
         struct mip_hdr hdr = create_mip_hdr(packet->mip, my_mip, 1, message_size, 0x04);
         memcpy(raw_buffer, &hdr, sizeof(struct mip_hdr));
@@ -59,6 +59,6 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
     }
 }
 
-void send_to_router(char *msg, uint8_t mip_dst, int sock_server){
-    write_to_unix_socket(msg, mip_dst, sock_server, 0);
+void send_to_router(char *msg, uint8_t msg_size, uint8_t mip_dst, int sock_server){
+    write_to_unix_socket(msg, msg_size, mip_dst, sock_server, 0);
 }

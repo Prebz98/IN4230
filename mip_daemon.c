@@ -127,7 +127,7 @@ void listen_unix_socket(int *sock_server, struct pollfd *fds){
     fds[0].events = POLLHUP | POLLIN;
 }
 
-void write_to_unix_socket(char *msg, uint8_t mip_dst, int sock_server, int ttl){
+void write_to_unix_socket(char *msg, uint8_t msg_size, uint8_t mip_dst, int sock_server, int ttl){
     /*
     * writing message to host with unix socket
     * msg: message to be sent
@@ -136,15 +136,15 @@ void write_to_unix_socket(char *msg, uint8_t mip_dst, int sock_server, int ttl){
     */
     char buffer[BUFSIZE];
     memset(buffer, 0, sizeof(buffer));
-    struct unix_packet up;
-    up.mip = mip_dst;
-    up.ttl = ttl;
-    strcpy(up.msg, msg);
+    struct unix_packet *up = (struct unix_packet*)buffer;
+    up->mip = mip_dst;
+    up->ttl = ttl;
+    memcpy(up->msg, msg, msg_size);
     if (sock_server == 0){
         printf("Routing daemon not connected\n");
         return;
     }
-    write(sock_server, &up, sizeof(up));
+    write(sock_server, buffer, msg_size+2);
 }
 
 int check_cache(uint8_t mip){
@@ -590,7 +590,8 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                 // its a routing message
                 else if (hdr->sdu_type == 0x04) {
                     char *translation = (char*)&raw_buffer[sizeof(struct mip_hdr)];
-                    send_to_router(translation, hdr->src, fds[3].fd);
+
+                    send_to_router(translation, hdr->sdu_len, hdr->src, fds[3].fd);
                 }
             }
             // client wants to identify

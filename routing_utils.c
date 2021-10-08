@@ -163,13 +163,13 @@ void send_update(struct node *routing_list, int sock_server, int mip_caused_upda
     //sending to neighbors
     current_node_to_send = routing_list;
     while (current_node_to_send->next != NULL) {
+        current_node_to_send = current_node_to_send->next;
         char update_buffer[BUFSIZE];
         memset(update_buffer, 0, BUFSIZE);
         memcpy(update_buffer, ROUTING_UPDATE, 3);
         //save one slot for number of pairs
         struct update_pair *pair_list = (struct update_pair *)&update_buffer[4];
         int index = 0;
-        current_node_to_send = current_node_to_send->next;
 
         //dont send update back to the one that caused it
         if (current_node_to_send->mip == mip_caused_update) {
@@ -186,17 +186,18 @@ void send_update(struct node *routing_list, int sock_server, int mip_caused_upda
                 pair.mip_target = current_message_node->mip;
 
                 if (current_message_node->mip == current_node_to_send->mip){
-                    continue;
                 }
 
                 //sending MAX_DISTANCE if next hop is equal to the one we are sending to
-                if (current_message_node->next_mip == current_node_to_send->mip){
+                else if (current_message_node->next_mip == current_node_to_send->mip){
                     pair.distance = MAX_DISTANCE;
+                    pair_list[index] = pair;
+                    index++;
                 }else {
                     pair.distance = current_message_node->distance;
+                    pair_list[index] = pair;
+                    index++;
                 }
-                memcpy(&pair_list[index], &pair, sizeof(struct update_pair));
-                index++;
             }
 
             //number of pairs
@@ -212,8 +213,9 @@ void send_update(struct node *routing_list, int sock_server, int mip_caused_upda
 
             packet->mip = current_node_to_send->mip;
 
-            write(sock_server, packet, message_size);
+            write(sock_server, buffer_to_send, 2+message_size);
             printf("Sent update to %d\n", packet->mip);
+
         }
     }
     print_routing_list(routing_list);
@@ -246,19 +248,18 @@ bool update_routing_list(struct unix_packet *packet, struct node *routing_list){
             if (current_node->mip == current_pair.mip_target){
                 known_address = true;
                 //if the prevous saved distance is bigger => swap
-                if (current_node->distance > current_pair.distance) {
-                    current_node->distance = current_pair.distance;
+                if (current_node->distance > current_pair.distance+1) {
+                    current_node->distance = current_pair.distance+1;
                     change = true;   
                 }
             }
         }
         //address is not known => add to linked list
         if (!known_address){
-            add_to_linked_list(current_pair.distance, current_pair.mip_target, packet->mip, routing_list);
+            add_to_linked_list(current_pair.distance+1, current_pair.mip_target, packet->mip, routing_list);
         }
         i++;
     }
-    printf("First pair %d %d\n", pairs[0].mip_target, pairs[0].distance);
     print_routing_list(routing_list);
     return change;
 }
@@ -271,7 +272,7 @@ void read_from_socket(int sock_server, char* buffer, bool *done, struct node *ro
     * done: boolean to stop the program
     */
     int x;
-    if ((x = read(sock_server, buffer, sizeof(buffer))) == -1 || x == 0){
+    if ((x = read(sock_server, buffer, BUFSIZE)) == -1 || x == 0){
         *done = true;
         return;
     }
