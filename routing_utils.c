@@ -61,14 +61,22 @@ void write_hello(int sock_server){
     * sock_server: socket fd
     */
 
-    char *message = ROUTING_HELLO;
-    struct unix_packet down;
-    memset(&down, 0, sizeof(struct unix_packet));
-    down.mip = 255;
-    down.ttl = 1;
-    strcpy(down.msg, message);
-    write(sock_server, &down, sizeof(struct unix_packet));
-    printf("Sent HELLO\n");
+
+    char buffer[BUFSIZE];
+    struct unix_packet *down = (struct unix_packet*)buffer;
+    memset(buffer, 0, BUFSIZE);
+    down->mip = 255;
+    down->ttl = 1;
+    strcpy(down->msg, ROUTING_HELLO);
+
+    //32 bit align
+    int message_len = strlen(down->msg) + 2;
+    int rest = message_len % 4;
+    message_len += rest ? 4-rest : 0;
+    
+    int rc;
+    rc = write(sock_server, buffer, message_len);
+    printf("Sent HLO %d bytes\n", rc);
 }
 
 void add_to_linked_list(uint8_t distance, uint8_t mip, uint8_t next_mip, struct node *routing_list){
@@ -209,12 +217,15 @@ void send_update(struct node *routing_list, int sock_server, int mip_caused_upda
             memset(buffer_to_send, 0, BUFSIZE);
             struct unix_packet *packet = (struct unix_packet*)buffer_to_send;
             packet->ttl = 1;
+
+            int rest = message_size % 4;
+            message_size += rest ? 4-rest : 0;
             memcpy(packet->msg, update_buffer, message_size);
 
             packet->mip = current_node_to_send->mip;
-
-            write(sock_server, buffer_to_send, 2+message_size);
-            printf("Sent update to %d\n", packet->mip);
+            int rc;
+            rc = write(sock_server, buffer_to_send, message_size);
+            printf("Sent update to %d, %d bytes\n", packet->mip, rc);
 
         }
     }
@@ -271,19 +282,18 @@ void read_from_socket(int sock_server, char* buffer, bool *done, struct node *ro
     * buffer: to store message
     * done: boolean to stop the program
     */
-    int x;
-    if ((x = read(sock_server, buffer, BUFSIZE)) == -1 || x == 0){
+    int rc;
+    if ((rc = read(sock_server, buffer, BUFSIZE)) == -1 || rc == 0){
         *done = true;
         return;
     }
 
     struct unix_packet *packet = (struct unix_packet*)buffer;
-    char type[3];
-    memcpy(type, packet->msg, 3);
-    printf("Packet received with msg: \"%s\" from mip %d\n", type, packet->mip);
+    printf("%d bytes received from mip %d\n", rc, packet->mip);
 
     //its a hello message
     if (memcmp(packet->msg, ROUTING_HELLO, 3) == 0){
+        printf("It was a hello message\n");
         int res = handle_hello(packet->mip, routing_list);
         if (res == 1){
             send_update(routing_list, sock_server, packet->mip);
@@ -291,6 +301,7 @@ void read_from_socket(int sock_server, char* buffer, bool *done, struct node *ro
     }
     //its an update
     else if (memcmp(packet->msg, ROUTING_UPDATE, 3) == 0) {
+        printf("It was an update message\n");
         if (update_routing_list(packet, routing_list)){
             send_update(routing_list, sock_server, packet->mip);
         }

@@ -145,7 +145,7 @@ void write_to_unix_socket(char *msg, uint8_t msg_size, uint8_t mip_dst, int sock
         printf("Routing daemon not connected\n");
         return;
     }
-    write(sock_server, buffer, msg_size+2);
+    write(sock_server, buffer, msg_size);
 }
 
 int check_cache(uint8_t mip){
