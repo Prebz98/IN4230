@@ -117,7 +117,7 @@ void write_to_server(char *msg, uint8_t msg_size, uint8_t mip_dst){
 
     int rc;
     rc = write(sock_server, buffer, total_msg_size);
-    printf("Sent %d bytes to:\t\"%s\"\tto MIP-address: %d\n", rc, down->msg, mip_dst);
+    printf("Sent %d bytes to %d: \"%s\"\n", rc, mip_dst, down->msg);
 }
 
 void write_identifying_msg(){
@@ -146,7 +146,7 @@ void read_from_socket(char* expected_resp){
     }
     struct unix_packet *down = (struct unix_packet*)buffer;
     if (strcmp(down->msg, expected_resp) == 0){
-        printf("Message recieved: %s\n", down->msg);
+        printf("%d bytes recieved from %d: %s\n", rc, down->mip, down->msg);
         done = true;
         return;
     }else if (strcmp(down->msg, expected_resp) > 0) {

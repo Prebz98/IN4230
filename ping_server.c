@@ -103,8 +103,9 @@ void write_to_socket(char *msg, int msg_size, uint8_t mip){
     int rest = total_msg_size % 4;
     total_msg_size += rest ? 4-rest : 0; 
 
-    write(sock_server, buffer, total_msg_size);
-    printf("Sent back message: \"%s\" to %d\n", down->msg, down->mip);
+    int rc;
+    rc = write(sock_server, buffer, total_msg_size);
+    printf("Sent back %d bytes to %d, message: \"%s\"\n", rc, down->mip, down->msg);
     printf(LINE);
 }
 
