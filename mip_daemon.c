@@ -579,9 +579,7 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                 }else if (hdr->sdu_type == 0x02) {
                     int index = sizeof(struct mip_hdr);
                     char *translation = (char*)raw_buffer; 
-
-                    //size plus 4 so that its still 32 bit aligned
-                    int total_size = hdr->sdu_len+4;
+                    int total_size = hdr->sdu_len;
                     struct unix_packet up;
                     memset(&up, 0, sizeof(struct unix_packet));
                     up.mip = hdr->src;

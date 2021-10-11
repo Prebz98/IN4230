@@ -90,7 +90,7 @@ void write_to_socket(char *msg, int msg_size, uint8_t mip){
     * replace PING with PONG and send the message back
     * msg: message to be written
     */
-    int total_msg_size = 2+msg_size;
+    int total_msg_size = msg_size;
     char buffer[BUFSIZE];
     memset(buffer, 0, BUFSIZE);
     struct unix_packet *down = (struct unix_packet*)buffer;
