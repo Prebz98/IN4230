@@ -52,6 +52,7 @@ int get_mac_from_interface(struct sockaddr_ll *senders_iface);
 int send_raw_packet(int *raw_sock, struct sockaddr_ll *so_name, uint8_t *buf, size_t len, uint8_t dst_mac[6]);
 void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_table);
 void send_to_router(char *msg, uint8_t msg_size, uint8_t mip_dst, int sock_server);
-void write_to_unix_socket(char *msg, uint8_t msg_size, uint8_t mip_dst, int sock_server, int ttl);
+void write_to_unix_socket(char *msg, uint8_t msg_size, uint8_t mip_dst, int sock_server, uint8_t ttl);
 int check_cache(uint8_t mip);
+void error(int ret, char *msg);
 #endif

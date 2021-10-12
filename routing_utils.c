@@ -70,8 +70,8 @@ void write_hello(int sock_server){
     strcpy(down->msg, ROUTING_HELLO);
 
     //32 bit align
-    int message_len = strlen(down->msg) + 2;
-    int rest = message_len % 4;
+    uint8_t message_len = strlen(down->msg) + 2;
+    uint8_t rest = message_len % 4;
     message_len += rest ? 4-rest : 0;
     
     int rc;
@@ -156,7 +156,7 @@ void print_routing_list(struct node *list){
     printf("\n");
 }
 
-void send_update(struct node *routing_list, int sock_server, int mip_caused_update){
+void send_update(struct node *routing_list, int sock_server, uint8_t mip_caused_update){
     /*
     * sends an update message with the entire routing table
     * routing_list: the routing table that we will send
@@ -177,12 +177,12 @@ void send_update(struct node *routing_list, int sock_server, int mip_caused_upda
         memcpy(update_buffer, ROUTING_UPDATE, 3);
         //save one slot for number of pairs
         struct update_pair *pair_list = (struct update_pair *)&update_buffer[4];
-        int index = 0;
+        uint8_t index = 0;
 
         //dont send update back to the one that caused it
-        if (current_node_to_send->mip == mip_caused_update) {
-            continue;
-        }
+        // if (current_node_to_send->mip == mip_caused_update) {
+        //     continue;
+        // }
 
         if (current_node_to_send->distance == 1) {
             
@@ -194,6 +194,8 @@ void send_update(struct node *routing_list, int sock_server, int mip_caused_upda
                 pair.mip_target = current_message_node->mip;
 
                 if (current_message_node->mip == current_node_to_send->mip){
+                    // dont send its own adress to a node
+                    continue;
                 }
 
                 //sending MAX_DISTANCE if next hop is equal to the one we are sending to
@@ -210,7 +212,7 @@ void send_update(struct node *routing_list, int sock_server, int mip_caused_upda
 
             //number of pairs
             update_buffer[3] = index;
-            int message_size = 4+(index*sizeof(struct update_pair));
+            uint8_t message_size = 4+(index*sizeof(struct update_pair));
 
             //create a unix packet
             char* buffer_to_send[BUFSIZE];
@@ -218,7 +220,7 @@ void send_update(struct node *routing_list, int sock_server, int mip_caused_upda
             struct unix_packet *packet = (struct unix_packet*)buffer_to_send;
             packet->ttl = 1;
 
-            int rest = message_size % 4;
+            uint8_t rest = message_size % 4;
             message_size += rest ? 4-rest : 0;
             memcpy(packet->msg, update_buffer, message_size);
 
@@ -268,6 +270,7 @@ bool update_routing_list(struct unix_packet *packet, struct node *routing_list){
         //address is not known => add to linked list
         if (!known_address){
             add_to_linked_list(current_pair.distance+1, current_pair.mip_target, packet->mip, routing_list);
+            change = true; 
         }
         i++;
     }

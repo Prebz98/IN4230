@@ -13,6 +13,10 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
     memset(buffer, 0, BUFSIZE);
     int rc;
     rc = read(fds[3].fd, buffer, BUFSIZE);
+    if (rc == -1){
+        error(rc, "read from socket");
+    }
+    uint8_t size = rc;
     struct unix_packet *packet = (struct unix_packet*)buffer;
 
     if (0 == memcmp(packet->msg, ROUTING_HELLO, 3)){
@@ -20,7 +24,7 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
         uint8_t raw_buffer[BUFSIZE];
         memset(raw_buffer, 0, BUFSIZE);
 
-        struct mip_hdr hdr = create_mip_hdr(255, my_mip, 1, rc, 0x04);
+        struct mip_hdr hdr = create_mip_hdr(255, my_mip, 1, size, 0x04);
         memcpy(raw_buffer, &hdr, sizeof(struct mip_hdr));
         memcpy(&raw_buffer[4], ROUTING_HELLO, 3);
 
@@ -40,10 +44,10 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
         uint8_t raw_buffer[BUFSIZE];
         memset(raw_buffer, 0, BUFSIZE);
 
-        int number_of_pairs = packet->msg[3];
-        int message_size = 4+(number_of_pairs*sizeof(struct update_pair));
+        uint8_t number_of_pairs = packet->msg[3];
+        uint8_t message_size = 4+(number_of_pairs*sizeof(struct update_pair));
 
-        int rest = message_size % 4;
+        uint8_t rest = message_size % 4;
         message_size += rest ? 4-rest : 0;
 
         struct mip_hdr hdr = create_mip_hdr(packet->mip, my_mip, 1, message_size, 0x04);
