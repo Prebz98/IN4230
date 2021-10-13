@@ -47,8 +47,14 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
         uint8_t number_of_pairs = packet->msg[3];
         uint8_t message_size = 4+(number_of_pairs*sizeof(struct update_pair));
 
-        uint8_t rest = message_size % 4;
-        message_size += rest ? 4-rest : 0;
+        struct update_pair *list = (struct update_pair*)&packet->msg[4];
+        for (int i=0;i<number_of_pairs;i++){
+            printf("MIP in packet %d\n", list[i].mip_target);
+        }
+
+        uint8_t total_size = 4+message_size;
+        uint8_t rest = total_size % 4;
+        total_size += rest ? 4-rest : 0;
 
         struct mip_hdr hdr = create_mip_hdr(packet->mip, my_mip, 1, message_size, 0x04);
         memcpy(raw_buffer, &hdr, sizeof(struct mip_hdr));
@@ -61,7 +67,7 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
             //broadcast?
         }else {
             interface = cache_table[cache_index].iface;
-            send_raw_packet(&fds[1].fd, &interface, raw_buffer, sizeof(struct mip_hdr)+message_size, cache_table[cache_index].mac);
+            send_raw_packet(&fds[1].fd, &interface, raw_buffer, total_size, cache_table[cache_index].mac);
         }
 
     }

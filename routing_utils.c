@@ -180,9 +180,9 @@ void send_update(struct node *routing_list, int sock_server, uint8_t mip_caused_
         uint8_t index = 0;
 
         //dont send update back to the one that caused it
-        // if (current_node_to_send->mip == mip_caused_update) {
-        //     continue;
-        // }
+        if (current_node_to_send->mip == mip_caused_update) {
+            continue;
+        }
 
         if (current_node_to_send->distance == 1) {
             
@@ -215,18 +215,19 @@ void send_update(struct node *routing_list, int sock_server, uint8_t mip_caused_
             uint8_t message_size = 4+(index*sizeof(struct update_pair));
 
             //create a unix packet
-            char* buffer_to_send[BUFSIZE];
+            char buffer_to_send[BUFSIZE];
             memset(buffer_to_send, 0, BUFSIZE);
             struct unix_packet *packet = (struct unix_packet*)buffer_to_send;
             packet->ttl = 1;
-
-            uint8_t rest = message_size % 4;
-            message_size += rest ? 4-rest : 0;
             memcpy(packet->msg, update_buffer, message_size);
+
+            uint8_t total_size = 2+message_size;
+            uint8_t rest = total_size % 4;
+            total_size += rest ? 4-rest : 0;
 
             packet->mip = current_node_to_send->mip;
             int rc;
-            rc = write(sock_server, buffer_to_send, message_size);
+            rc = write(sock_server, buffer_to_send, total_size);
             printf("Sent update to %d, %d bytes\n", packet->mip, rc);
 
         }
@@ -245,7 +246,6 @@ bool update_routing_list(struct unix_packet *packet, struct node *routing_list){
     bool change = false;
     uint8_t num_pairs = packet->msg[3];
     struct update_pair *pairs = (struct update_pair*)&(packet->msg[4]);
-    struct node *current_node = routing_list;
 
     // go through the pairs
     int i = 0;
@@ -253,6 +253,7 @@ bool update_routing_list(struct unix_packet *packet, struct node *routing_list){
         struct update_pair current_pair = pairs[i];
         bool known_address = false;
 
+        struct node *current_node = routing_list;
         //go through the linked list for all pairs
         while (current_node->next != NULL) {
             current_node = current_node->next;
@@ -306,7 +307,7 @@ void read_from_socket(int sock_server, char* buffer, bool *done, struct node *ro
     else if (memcmp(packet->msg, ROUTING_UPDATE, 3) == 0) {
         printf("It was an update message\n");
         if (update_routing_list(packet, routing_list)){
-            send_update(routing_list, sock_server, packet->mip);
+            // send_update(routing_list, sock_server, packet->mip);
         }
     }
 }
