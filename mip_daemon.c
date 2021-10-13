@@ -146,6 +146,7 @@ void write_to_unix_socket(char *msg, uint8_t msg_size, uint8_t mip_dst, int sock
         return;
     }
 
+    //the msgsize already has the size of the message + the mip and ttl
     uint8_t total_size = 2+msg_size;
     uint8_t rest = total_size % 4;
     total_size += rest ? 4-rest : 0;
@@ -472,6 +473,75 @@ void identify_unix_client(struct pollfd *fds, int index){
     }
 }
 
+void create_raw_packet(uint8_t mip_dst, uint8_t mip_addr, struct pollfd *fds){
+    if (mip_dst == waiting_message.mip){
+        // mip is in cache-> send it 
+        int index;
+        if ((index = check_cache(mip_dst)) != -1){
+            //create packet
+            struct mip_hdr mip_hdr = create_mip_hdr(mip_dst, mip_addr, 1, waiting_msg_len, 0x02);
+            uint8_t raw_buffer[BUFSIZE];
+            char *msg = waiting_message.msg;
+
+            memset(raw_buffer, 0, BUFSIZE);
+            memcpy(raw_buffer, &mip_hdr, sizeof(struct mip_hdr));
+            memcpy(&raw_buffer[4], msg, waiting_msg_len);
+            memcpy(senders_iface, &cache_table[index].iface, sizeof(struct sockaddr_ll));
+
+            int index = check_cache(mip_dst);
+            send_raw_packet(&fds[1].fd, senders_iface, raw_buffer, sizeof(struct mip_hdr)+waiting_msg_len, cache_table[index].mac);
+        }
+    }else {
+        printf("Message is no longer avaliable\n");
+    }
+    
+    
+    
+    
+    
+    
+    // mip is in cache-> send it 
+    int index;
+    if ((index = check_cache(mip_dst)) != -1){
+        char *msg = up->msg;
+        //create packet and send
+        struct mip_hdr mip_hdr = create_mip_hdr(mip_dst, mip_addr, 1, size, 0x02);
+        memset(raw_buffer, 0, BUFSIZE);
+        memcpy(raw_buffer, &mip_hdr, sizeof(struct mip_hdr));
+        memcpy(&raw_buffer[4], msg, size);
+        memcpy(senders_iface, &cache_table[index].iface, sizeof(struct sockaddr_ll));
+        send_raw_packet(&fds[1].fd, senders_iface, raw_buffer, sizeof(struct mip_hdr)+size, cache_table[index].mac);
+
+    }else { //mip not in cache -> arp-req
+        //saving waiting message
+        struct unix_packet packet_to_save;
+        packet_to_save.mip = mip_dst;
+        packet_to_save.ttl = 0;
+        memcpy(packet_to_save.msg, up->msg, size);
+        waiting_message = packet_to_save;
+        waiting_msg_len = size;
+
+        //creating arp request
+        struct arp_sdu arp_req_sdu = create_arp_sdu(mip_dst, true);
+        struct mip_hdr mip_hdr = create_mip_hdr(255, mip_addr, 1, sizeof(struct arp_sdu), 0x01);
+        memset(raw_buffer, 0, BUFSIZE);
+        memcpy(raw_buffer, &mip_hdr, sizeof(struct mip_hdr));
+        memcpy(&raw_buffer[4], &arp_req_sdu, sizeof(struct arp_sdu));
+        int num_if = get_mac_from_interface(senders_iface);
+        if (debug_mode){
+            printf("Creating broadcast\n");
+        }
+        uint8_t broadcast_mac[6] = DST_MAC_ADDR;
+        for (int i=0; i<num_if; i++){
+            send_raw_packet(&fds[1].fd, &senders_iface[i], raw_buffer, 8, broadcast_mac);
+        }
+        if (debug_mode){
+            printf(LINE);
+            printf("Creating MIP-ARP request\nArp type: %d\nMip address: %d\n", arp_req_sdu.type, arp_req_sdu.address);
+        }
+    }
+}
+
 void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t mip_addr){
     /*
     * the flow of the program
@@ -634,45 +704,11 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                     printf("DST MIP address: %d\n", mip_dst);
                     printf("Message: %s\n", up->msg);
                 }
-                // mip is in cache-> send it 
-                if ((index = check_cache(mip_dst)) != -1){
-                    char *msg = up->msg;
-                    mip_dst = up->mip;
-                    //create packet and send
-                    struct mip_hdr mip_hdr = create_mip_hdr(mip_dst, mip_addr, 1, size, 0x02);
-                    memset(raw_buffer, 0, BUFSIZE);
-                    memcpy(raw_buffer, &mip_hdr, sizeof(struct mip_hdr));
-                    memcpy(&raw_buffer[4], msg, size);
-                    memcpy(senders_iface, &cache_table[index].iface, sizeof(struct sockaddr_ll));
-                    send_raw_packet(&fds[1].fd, senders_iface, raw_buffer, sizeof(struct mip_hdr)+size, cache_table[index].mac);
 
-                }else { //mip not in cache -> arp-req
-                    //saving waiting message
-                    struct unix_packet packet_to_save;
-                    packet_to_save.mip = mip_dst;
-                    packet_to_save.ttl = 0;
-                    memcpy(packet_to_save.msg, up->msg, size);
-                    waiting_message = packet_to_save;
-                    waiting_msg_len = size;
-
-                    //creating arp request
-                    struct arp_sdu arp_req_sdu = create_arp_sdu(mip_dst, true);
-                    struct mip_hdr mip_hdr = create_mip_hdr(255, mip_addr, 1, sizeof(struct arp_sdu), 0x01);
-                    memset(raw_buffer, 0, BUFSIZE);
-                    memcpy(raw_buffer, &mip_hdr, sizeof(struct mip_hdr));
-                    memcpy(&raw_buffer[4], &arp_req_sdu, sizeof(struct arp_sdu));
-                    int num_if = get_mac_from_interface(senders_iface);
-                    if (debug_mode){
-                        printf("Creating broadcast\n");
-                    }
-                    uint8_t broadcast_mac[6] = DST_MAC_ADDR;
-                    for (int i=0; i<num_if; i++){
-                        send_raw_packet(&fds[1].fd, &senders_iface[i], raw_buffer, 8, broadcast_mac);
-                    }
-                    if (debug_mode){
-                        printf(LINE);
-                        printf("Creating MIP-ARP request\nArp type: %d\nMip address: %d\n", arp_req_sdu.type, arp_req_sdu.address);
-                    }
+                //send a request to the routing daemon
+                send_req_to_router(mip_addr, mip_dst, fds[3].fd);
+                if (debug_mode){
+                    printf("Sent a request to router\n");
                 }
             }
         }

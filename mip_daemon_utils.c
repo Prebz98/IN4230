@@ -8,6 +8,19 @@
 #include <unistd.h>
 #include "mip_daemon.h"
 
+void send_req_to_router(uint8_t mip_from, uint8_t mip_to, int router_socket){
+    char buffer[BUFSIZE];
+    struct unix_packet *packet = (struct unix_packet*)buffer;
+    memset(packet->msg, 0, BUFSIZE);
+
+    packet->mip = mip_from;
+    packet->ttl = 0;
+    memcpy(packet->msg, "REQ", 3);
+    memcpy(&packet->msg[3], &mip_to, 1);
+
+    write(router_socket, packet, 8);
+}
+
 void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_table){
     char buffer[BUFSIZE];
     memset(buffer, 0, BUFSIZE);
@@ -19,6 +32,7 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
     uint8_t size = rc;
     struct unix_packet *packet = (struct unix_packet*)buffer;
 
+    //its a hello message
     if (0 == memcmp(packet->msg, ROUTING_HELLO, 3)){
         printf("Received hello from router\n");
         uint8_t raw_buffer[BUFSIZE];
@@ -38,7 +52,7 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
         }
         
     }
-    //ROUTING_UPDATE is first part of buffer
+    //its an update message
     else if (0 == memcmp(packet->msg, ROUTING_UPDATE, 3)) {
         printf("Received an update\n");
         uint8_t raw_buffer[BUFSIZE];
@@ -70,6 +84,13 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
             send_raw_packet(&fds[1].fd, &interface, raw_buffer, total_size, cache_table[cache_index].mac);
         }
 
+    }
+    else if (0 == memcmp(packet->msg, ROUTING_RESPONSE, 3)) {
+        uint8_t raw_buffer[BUFSIZE];
+        memset(raw_buffer, 0, BUFSIZE);
+
+        uint8_t next_mip = packet->msg[5];
+        
     }
 }
 

@@ -55,4 +55,5 @@ void send_to_router(char *msg, uint8_t msg_size, uint8_t mip_dst, int sock_serve
 void write_to_unix_socket(char *msg, uint8_t msg_size, uint8_t mip_dst, int sock_server, uint8_t ttl);
 int check_cache(uint8_t mip);
 void error(int ret, char *msg);
+void send_req_to_router(uint8_t mip_from, uint8_t mip_to, int router_socket);
 #endif

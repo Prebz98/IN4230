@@ -51,7 +51,7 @@ void write_identifying_msg(int sock_server){
     memset(buffer, 0, BUFSIZE);
     uint8_t sdu_type = 0x04; //routing sdu type
     memset(buffer, sdu_type, 1);
-    write(sock_server, buffer, 1);
+    write(sock_server, buffer, 4);
     printf("Identify myself for daemon\n");
 }
 
@@ -232,7 +232,6 @@ void send_update(struct node *routing_list, int sock_server, uint8_t mip_caused_
 
         }
     }
-    print_routing_list(routing_list);
 }
 
 bool update_routing_list(struct unix_packet *packet, struct node *routing_list){
@@ -275,8 +274,28 @@ bool update_routing_list(struct unix_packet *packet, struct node *routing_list){
         }
         i++;
     }
-    print_routing_list(routing_list);
     return change;
+}
+
+uint8_t lookup(uint8_t mip_target, struct node *routing_list){
+    /*
+    * finds the next hop in the for messages targeted mip_target
+    * mip_target: mip address the message is for
+    * routing_list: the routing table
+
+    * returns: (uint8_t) the mip address to send the packet to
+    * returns 0 if the target is not found
+    */
+    struct node *current_node = routing_list;
+
+    while (current_node->next != NULL) {
+        current_node = current_node->next;
+
+        if (current_node->mip == mip_target){
+            return current_node->next_mip;
+        }
+    }
+    return 255;
 }
 
 void read_from_socket(int sock_server, char* buffer, bool *done, struct node *routing_list){
@@ -298,18 +317,39 @@ void read_from_socket(int sock_server, char* buffer, bool *done, struct node *ro
     //its a hello message
     if (memcmp(packet->msg, ROUTING_HELLO, 3) == 0){
         printf("It was a hello message\n");
+        //update table, if a change was made, send an update
         int res = handle_hello(packet->mip, routing_list);
         if (res == 1){
             send_update(routing_list, sock_server, packet->mip);
         }
     }
-    //its an update
+    //its an update, update the table
     else if (memcmp(packet->msg, ROUTING_UPDATE, 3) == 0) {
         printf("It was an update message\n");
+        //if a change was made, send an update
         if (update_routing_list(packet, routing_list)){
-            // send_update(routing_list, sock_server, packet->mip);
+            send_update(routing_list, sock_server, packet->mip);
         }
     }
+    //its a request, lookup the MIP and send a response
+    else if (memcmp(packet->msg, ROUTING_REQUEST, 3) == 0) {
+        printf("Its was a request message\n");
+        uint8_t mip_to = packet->msg[3];
+        uint8_t mip_from = packet->mip;
+        uint8_t mip_next = lookup(mip_to, routing_list);
+
+        char down_buf[BUFSIZE];
+        struct unix_packet *down = (struct unix_packet*)down_buf;
+        down->mip = mip_from;
+        down->ttl = 0;
+        memcpy(down->msg, ROUTING_RESPONSE, 3);
+        memcpy(&down->msg[3], &mip_next, 1);
+
+        uint8_t total_size = 8;
+        write(sock_server, down_buf, total_size);
+        printf("Sent a response message\n");
+    }
+    print_routing_list(routing_list);
 }
 
 

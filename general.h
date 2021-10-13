@@ -7,6 +7,8 @@
 #define LINE "\n------------------------------\n"
 #define ROUTING_HELLO "HLO"
 #define ROUTING_UPDATE "UPD"
+#define ROUTING_REQUEST "REQ"
+#define ROUTING_RESPONSE "RES"
 
 struct unix_packet {
     uint16_t mip : 8;
