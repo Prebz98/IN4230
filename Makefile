@@ -32,6 +32,8 @@ MIP_CLIENT_BC = ./ping_client ${MIP_C} "Hello from B" ${SOCK_B}
 MIP_CLIENT_CB = ./ping_client ${MIP_B} "Hello from C" ${SOCK_C}
 MIP_CLIENT_DB = ./ping_client ${MIP_B} "Hello from C" ${SOCK_D}
 MIP_CLIENT_EA = ./ping_client ${MIP_A} "Hello from C" ${SOCK_E}
+MIP_CLIENT_AE = ./ping_client ${MIP_E} "Hello from A" ${SOCK_A}
+MIP_CLIENT_AC = ./ping_client ${MIP_C} "Hello from A" ${SOCK_A}
 
 MIP_SERVER_A = ./ping_server ${SOCK_A}
 MIP_SERVER_B = ./ping_server ${SOCK_B}
@@ -80,6 +82,9 @@ runClientA: ping_client
 
 runClientBA: ping_client
 	${MIP_CLIENT_BA}
+
+runClientAC: ping_client
+	${MIP_CLIENT_AC}
 
 runClientBC: ping_client
 	${MIP_CLIENT_BC}

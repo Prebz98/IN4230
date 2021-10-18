@@ -180,9 +180,9 @@ void send_update(struct node *routing_list, int sock_server, uint8_t mip_caused_
         uint8_t index = 0;
 
         //dont send update back to the one that caused it
-        if (current_node_to_send->mip == mip_caused_update) {
-            continue;
-        }
+        // if (current_node_to_send->mip == mip_caused_update) {
+        //     continue;
+        // }
 
         if (current_node_to_send->distance == 1) {
             

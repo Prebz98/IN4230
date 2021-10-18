@@ -21,7 +21,7 @@ void send_req_to_router(uint8_t mip_from, uint8_t mip_to, int router_socket){
     write(router_socket, packet, 8);
 }
 
-void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_table){
+void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_table, struct unix_packet *waiting_message, int waiting_msg_len){
     char buffer[BUFSIZE];
     memset(buffer, 0, BUFSIZE);
     int rc;
@@ -86,11 +86,25 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
 
     }
     else if (0 == memcmp(packet->msg, ROUTING_RESPONSE, 3)) {
+        printf("Received response from router\n");
         uint8_t raw_buffer[BUFSIZE];
         memset(raw_buffer, 0, BUFSIZE);
 
-        uint8_t next_mip = packet->msg[5];
-        
+        uint8_t next_mip = packet->msg[3];
+
+        int cache_index = check_cache(next_mip);
+        struct sockaddr_ll interface;
+
+        uint8_t size = sizeof(struct mip_hdr)+waiting_msg_len;
+        uint8_t rest = size % 4;
+        size += rest ? 4-rest : 0;
+
+        struct mip_hdr hdr = create_mip_hdr(waiting_message->mip, my_mip, waiting_message->ttl, waiting_msg_len, 0x02);
+        memcpy(raw_buffer, &hdr, sizeof(struct mip_hdr));
+        memcpy(&raw_buffer[sizeof(struct mip_hdr)], waiting_message->msg, waiting_msg_len);
+        memcpy(&interface, &cache_table[cache_index].iface, sizeof(struct sockaddr_ll));
+
+        send_raw_packet(&fds[1].fd, &interface, raw_buffer, size, cache_table[cache_index].mac);
     }
 }
 
