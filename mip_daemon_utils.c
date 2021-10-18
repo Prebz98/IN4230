@@ -84,7 +84,7 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
             send_raw_packet(&fds[1].fd, &interface, raw_buffer, total_size, cache_table[cache_index].mac);
         }
 
-    }
+    }// its a response
     else if (0 == memcmp(packet->msg, ROUTING_RESPONSE, 3)) {
         printf("Received response from router\n");
         uint8_t raw_buffer[BUFSIZE];
