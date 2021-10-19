@@ -34,7 +34,6 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
 
     //its a hello message
     if (0 == memcmp(packet->msg, ROUTING_HELLO, 3)){
-        printf("Received hello from router\n");
         uint8_t raw_buffer[BUFSIZE];
         memset(raw_buffer, 0, BUFSIZE);
 
@@ -54,7 +53,6 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
     }
     //its an update message
     else if (0 == memcmp(packet->msg, ROUTING_UPDATE, 3)) {
-        printf("Received an update\n");
         uint8_t raw_buffer[BUFSIZE];
         memset(raw_buffer, 0, BUFSIZE);
 
@@ -62,9 +60,6 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
         uint8_t message_size = 4+(number_of_pairs*sizeof(struct update_pair));
 
         struct update_pair *list = (struct update_pair*)&packet->msg[4];
-        for (int i=0;i<number_of_pairs;i++){
-            printf("MIP in packet %d\n", list[i].mip_target);
-        }
 
         uint8_t total_size = 4+message_size;
         uint8_t rest = total_size % 4;
@@ -79,6 +74,7 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
 
         if (cache_index == -1){
             //broadcast?
+            error(cache_index, "cant find the requested MIP address\n");
         }else {
             interface = cache_table[cache_index].iface;
             send_raw_packet(&fds[1].fd, &interface, raw_buffer, total_size, cache_table[cache_index].mac);
@@ -86,23 +82,38 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
 
     }// its a response
     else if (0 == memcmp(packet->msg, ROUTING_RESPONSE, 3)) {
-        printf("Received response from router\n");
         uint8_t raw_buffer[BUFSIZE];
         memset(raw_buffer, 0, BUFSIZE);
 
         uint8_t next_mip = packet->msg[3];
 
         int cache_index = check_cache(next_mip);
-        struct sockaddr_ll interface;
+        if (cache_index == -1){
+            //mip not in cache -> arp-req
+            struct arp_sdu arp_req_sdu = create_arp_sdu(next_mip, true);
+            struct mip_hdr mip_hdr = create_mip_hdr(255, my_mip, 1, sizeof(struct arp_sdu), 0x01);
+            memset(raw_buffer, 0, BUFSIZE);
+            memcpy(raw_buffer, &mip_hdr, sizeof(struct mip_hdr));
+            memcpy(&raw_buffer[4], &arp_req_sdu, sizeof(struct arp_sdu));
 
-        uint8_t size = sizeof(struct mip_hdr)+waiting_sdu_len;
-        uint8_t rest = size % 4;
-        size += rest ? 4-rest : 0;
+            struct sockaddr_ll senders_iface[MAX_IF];
+            int num_if = get_mac_from_interface(senders_iface);
+            uint8_t broadcast_mac[6] = DST_MAC_ADDR;
+            for (int i=0; i<num_if; i++){
+                send_raw_packet(&fds[1].fd, &senders_iface[i], raw_buffer, 8, broadcast_mac);
+            }
+        }else { //mip in cache
+            struct sockaddr_ll interface;
 
-        memcpy(raw_buffer, waiting_message, size);
-        memcpy(&interface, &cache_table[cache_index].iface, sizeof(struct sockaddr_ll));
+            uint8_t size = sizeof(struct mip_hdr)+waiting_sdu_len;
+            uint8_t rest = size % 4;
+            size += rest ? 4-rest : 0;
 
-        send_raw_packet(&fds[1].fd, &interface, raw_buffer, size, cache_table[cache_index].mac);
+            memcpy(raw_buffer, waiting_message, size);
+            memcpy(&interface, &cache_table[cache_index].iface, sizeof(struct sockaddr_ll));
+
+            send_raw_packet(&fds[1].fd, &interface, raw_buffer, size, cache_table[cache_index].mac);
+        }
     }
 }
 

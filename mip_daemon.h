@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <sys/poll.h>
+#include <stdbool.h>
 
 #define MAX_EVENTS 4
 #define CACHE_TABLE_LEN 4
@@ -49,4 +50,5 @@ void write_to_unix_socket(char *msg, uint8_t msg_size, uint8_t mip_dst, int sock
 int check_cache(uint8_t mip);
 void error(int ret, char *msg);
 void send_req_to_router(uint8_t mip_from, uint8_t mip_to, int router_socket);
+struct arp_sdu create_arp_sdu(uint8_t mip, bool req);
 #endif

@@ -18,7 +18,7 @@ struct sockaddr_un serv_addr[1];
 int sock_server = 0;
 bool done = false;
 
-int argparser(int argc, char **argv, char* path, uint8_t *mip_dst, char *msg) {
+int argparser(int argc, char **argv, char* path, uint8_t *mip_dst, char *msg, uint8_t *ttl) {
     /*
     * parses all arguments
     * argc: number of system arguments given
@@ -34,11 +34,12 @@ int argparser(int argc, char **argv, char* path, uint8_t *mip_dst, char *msg) {
         switch (c)
         {
         case 'h':
-            printf("How to run\n./ping_client [-h] <destination_host> <message> <socket lower>\nIf the message conatin spaces, use this syntax: \"word1 word2\"\nAlternative: Use the makefile commands.\n");
+            printf("How to run\n./ping_client [-h] <destination_host> <ttl> <message> <socket lower>\nIf the message conatin spaces, use this syntax: \"word1 word2\"\nAlternative: Use the makefile commands.\n");
             printf("Optional args:\n\
             -h Help\n\
             Non-optional args:\n\
             destination_host: MIP address for destination host\n\
+            ttl: time to live\n\
             Message: Message to be sent.\n\
             Socket lower: filename for unix socket to lower layer\n\n");
             printf("Program description:\nThe program will put the mip-destination and message in a packet, and send it to a lower layer through a unix socket. Then it will listen on that socket, waiting for a response, then printing the time used. If the program does not receive a matching response within 1 second, the program terminates with a timeout.\n");
@@ -50,8 +51,9 @@ int argparser(int argc, char **argv, char* path, uint8_t *mip_dst, char *msg) {
 
     index = optind;
     *mip_dst = atoi(argv[index]);
-    strcpy(msg, argv[index+1]);
-    strcpy(path, argv[index+2]);
+    *ttl = atoi(argv[index+1]);
+    strcpy(msg, argv[index+2]);
+    strcpy(path, argv[index+3]);
     return 0;
 }
 
@@ -94,7 +96,7 @@ void socket_setdown(char *path) {
     }
 }
 
-void write_to_server(char *msg, uint8_t msg_size, uint8_t mip_dst){
+void write_to_server(char *msg, uint8_t msg_size, uint8_t mip_dst, uint8_t ttl){
     /*
     * sending message to daemon
     * mip address first 8 bits, then msg
@@ -107,7 +109,7 @@ void write_to_server(char *msg, uint8_t msg_size, uint8_t mip_dst){
     memset(buffer, 0, BUFSIZE);
     struct unix_packet *down = (struct unix_packet*)buffer;
     down->mip = mip_dst;
-    down->ttl = 0;
+    down->ttl = ttl;
     memcpy(down->msg, "PING:", 5);
     memcpy(down->msg+5, msg, msg_size);
 
@@ -160,7 +162,8 @@ int main(int argc, char* argv[]) {
     char path[BUFSIZE];
     char expected_resp[BUFSIZE];
     float diff = 0;
-    argparser(argc, argv, path, &mip_dst, msg);
+    uint8_t ttl = 0;
+    argparser(argc, argv, path, &mip_dst, msg, &ttl);
 
     memset(serv_addr, 0, sizeof(struct sockaddr_un));
     printf(LINE);
@@ -168,7 +171,7 @@ int main(int argc, char* argv[]) {
     strcat(expected_resp, msg);
     socket_setdown(path);
     write_identifying_msg();
-    write_to_server(msg, strlen(msg), mip_dst);
+    write_to_server(msg, strlen(msg), mip_dst, ttl);
     clock_t start = clock();
 
     while(!done){

@@ -142,7 +142,7 @@ void write_to_unix_socket(char *msg, uint8_t msg_size, uint8_t mip_dst, int sock
     up->ttl = ttl;
     memcpy(up->msg, msg, msg_size);
     if (sock_server == 0){
-        printf("Routing daemon not connected\n");
+        printf("Routing daemon not connected. Message ignored.\n");
         return;
     }
 
@@ -473,59 +473,6 @@ void identify_unix_client(struct pollfd *fds, int index){
     }
 }
 
-// void create_raw_packet(uint8_t mip_dst, uint8_t mip_addr, struct pollfd *fds){
-//     if (mip_dst == waiting_message.mip){
-//         // mip is in cache-> send it 
-//         int index;
-//         uint8_t raw_buffer[BUFSIZE];
-//         struct sockaddr_ll senders_iface;
-//         if ((index = check_cache(mip_dst)) != -1){
-//             //create packet
-//             struct mip_hdr mip_hdr = create_mip_hdr(mip_dst, mip_addr, 1, waiting_msg_len, 0x02);
-//             char *msg = waiting_message.msg;
-
-//             memset(raw_buffer, 0, BUFSIZE);
-//             memcpy(raw_buffer, &mip_hdr, sizeof(struct mip_hdr));
-//             memcpy(&raw_buffer[4], msg, waiting_msg_len);
-//             memcpy(&senders_iface, &cache_table[index].iface, sizeof(struct sockaddr_ll));
-
-//             check_cache(mip_dst);
-//             send_raw_packet(&fds[1].fd, &senders_iface, raw_buffer, sizeof(struct mip_hdr)+waiting_msg_len, cache_table[index].mac);
-        
-//         }
-//         // else { //mip not in cache -> arp-req
-//         //     //saving waiting message
-//         //     struct unix_packet packet_to_save;
-//         //     packet_to_save.mip = mip_dst;
-//         //     packet_to_save.ttl = 0;
-//         //     memcpy(packet_to_save.msg, up->msg, size);
-//         //     waiting_message = packet_to_save;
-//         //     waiting_msg_len = size;
-
-//         //     //creating arp request
-//         //     struct arp_sdu arp_req_sdu = create_arp_sdu(mip_dst, true);
-//         //     struct mip_hdr mip_hdr = create_mip_hdr(255, mip_addr, 1, sizeof(struct arp_sdu), 0x01);
-//         //     memset(raw_buffer, 0, BUFSIZE);
-//         //     memcpy(raw_buffer, &mip_hdr, sizeof(struct mip_hdr));
-//         //     memcpy(&raw_buffer[4], &arp_req_sdu, sizeof(struct arp_sdu));
-//         //     int num_if = get_mac_from_interface(senders_iface);
-//         //     if (debug_mode){
-//         //         printf("Creating broadcast\n");
-//         //     }
-//         //     uint8_t broadcast_mac[6] = DST_MAC_ADDR;
-//         //     for (int i=0; i<num_if; i++){
-//         //         send_raw_packet(&fds[1].fd, &senders_iface[i], raw_buffer, 8, broadcast_mac);
-//         //     }
-//         //     if (debug_mode){
-//         //         printf(LINE);
-//         //         printf("Creating MIP-ARP request\nArp type: %d\nMip address: %d\n", arp_req_sdu.type, arp_req_sdu.address);
-//         //     }
-//         // }
-//     }else {
-//         printf("Message is no longer avaliable\n");
-//     }
-// }
-
 void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t mip_addr){
     /*
     * the flow of the program
@@ -558,9 +505,7 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
 
             // client has disconnected
             if (fds[i].revents & POLLHUP){
-                if (debug_mode){
-                    printf("Client has disconnected\n");
-                }
+                printf("Client has disconnected\n");
                 close(fds[i].fd);
                 fds[i].fd = 0;
             }
@@ -625,12 +570,6 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                         //get message to be sent
                         uint8_t mip_dst = waiting_message.hdr.dst; 
                         
-                        //create packet TODO
-                        // struct mip_hdr mip_hdr = create_mip_hdr(mip_dst, mip_addr, 1, waiting_msg_len, 0x02);
-                        // memset(raw_buffer, 0, BUFSIZE);
-                        // memcpy(raw_buffer, &mip_hdr, sizeof(struct mip_hdr));
-                        // memcpy(&raw_buffer[4], msg, waiting_msg_len);
-                        
                         memset(raw_buffer, 0, BUFSIZE);
                         memcpy(raw_buffer, &waiting_message, sizeof(struct mip_hdr)+waiting_sdu_len);
                         int index = check_cache(mip_dst);
@@ -654,23 +593,25 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                     if (debug_mode){
                         printf("\nSent message to client with unix socket\nMessage: %s\n", &translation[index]);
                     }
+                    printf("I have received a PING message!\n");
                 } //its not for me, I have to pass it on
                 else if (hdr->sdu_type == 0x02 && hdr->dst != mip_addr) {
-                    char* msg = (char*)&raw_buffer[sizeof(struct mip_hdr)];
-                    uint8_t msg_len = size-sizeof(struct mip_hdr);
                     //ttl --
-                    // saving waiting message
-                    struct raw_packet packet_to_save;
-                    memcpy(&packet_to_save, raw_buffer, size);
-                    memset(&waiting_message, 0, BUFSIZE);
-                    memcpy(&waiting_message, &packet_to_save, size);
-                    waiting_sdu_len = size;
-                    send_req_to_router(mip_addr, hdr->dst, fds[3].fd);
+                    hdr->ttl--;
+                    if (hdr->ttl > 0){
+                        // saving waiting message
+                        struct raw_packet packet_to_save;
+                        memcpy(&packet_to_save, raw_buffer, size);
+                        memset(&waiting_message, 0, BUFSIZE);
+                        memcpy(&waiting_message, &packet_to_save, size);
+                        waiting_sdu_len = size;
+                        send_req_to_router(mip_addr, hdr->dst, fds[3].fd);
+                        printf("PING message passed along\n");
+                    }
                 }
                 // its a routing message
                 else if (hdr->sdu_type == 0x04) {
                     char *translation = (char*)&raw_buffer[sizeof(struct mip_hdr)];
-
                     send_to_router(translation, hdr->sdu_len, hdr->src, fds[3].fd);
                 }
             }
@@ -715,7 +656,7 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                 struct mip_hdr hdr_to_save;
                 hdr_to_save.dst = mip_dst;
                 hdr_to_save.src = mip_addr;
-                hdr_to_save.ttl = 0; //TODO
+                hdr_to_save.ttl = up->ttl;
                 hdr_to_save.sdu_type = 0x02;
                 hdr_to_save.sdu_len = size;
                 packet_to_save.hdr = hdr_to_save;
@@ -725,12 +666,15 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                 
                 waiting_message = packet_to_save;
                 waiting_sdu_len = size;
+                printf("Will send a PING message!\n");
             }
         }
     }
 }
 
 int main(int argc, char** argv) {
+    printf("\n\n\n");
+    printf(LINE);
 
     //declare variables
     struct sockaddr_un serv_addr[1];
