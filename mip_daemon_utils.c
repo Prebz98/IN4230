@@ -9,6 +9,13 @@
 #include "mip_daemon.h"
 
 void send_req_to_router(uint8_t mip_from, uint8_t mip_to, int router_socket){
+    /*
+    * sends a request to the routing_daemon
+
+    * mip_from: my own mip address
+    * mip_to: mip address to send to
+    * router_socket: the fd of the routing_daemon
+    */
     char buffer[BUFSIZE];
     struct unix_packet *packet = (struct unix_packet*)buffer;
     memset(packet->msg, 0, BUFSIZE);
@@ -22,6 +29,15 @@ void send_req_to_router(uint8_t mip_from, uint8_t mip_to, int router_socket){
 }
 
 void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_table, struct raw_packet *waiting_message, int waiting_sdu_len){
+    /*
+    * takes one message from the routing_daemon and acts based on the type of message. (hello, update, response)
+
+    * fds: all saved fds
+    * my_mip: my own mip address
+    * cache_table: the arp-cache table
+    * waiting_message: unsent message
+    * waiting_sdu_len: length of the sdu in the waiting message
+    */
     char buffer[BUFSIZE];
     memset(buffer, 0, BUFSIZE);
     int rc;
@@ -46,6 +62,7 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
         number_of_if = get_mac_from_interface(interfaces);
         uint8_t broadcast_mac[6] = DST_MAC_ADDR;
 
+        //broadcast the hello
         for (int i = 0; i<number_of_if; i++){
             send_raw_packet(&fds[1].fd, &interfaces[i], raw_buffer, 7, broadcast_mac);
         }
@@ -72,15 +89,17 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
         int cache_index = check_cache(packet->mip);
         struct sockaddr_ll interface;
 
+        //target mip not found
         if (cache_index == -1){
             //broadcast?
             error(cache_index, "cant find the requested MIP address\n");
-        }else {
+        }else { //mip found in cache -> send
             interface = cache_table[cache_index].iface;
             send_raw_packet(&fds[1].fd, &interface, raw_buffer, total_size, cache_table[cache_index].mac);
         }
 
-    }// its a response
+    }
+    // its a response, if cached -> send, else arp broadcast req
     else if (0 == memcmp(packet->msg, ROUTING_RESPONSE, 3)) {
         uint8_t raw_buffer[BUFSIZE];
         memset(raw_buffer, 0, BUFSIZE);
@@ -115,8 +134,4 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
             send_raw_packet(&fds[1].fd, &interface, raw_buffer, size, cache_table[cache_index].mac);
         }
     }
-}
-
-void send_to_router(char *msg, uint8_t msg_size, uint8_t mip_dst, int sock_server){
-    write_to_unix_socket(msg, msg_size, mip_dst, sock_server, 0);
 }

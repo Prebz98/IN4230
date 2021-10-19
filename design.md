@@ -8,7 +8,9 @@ The fifth and sixth is extra spaces that is there to store pending connections. 
 ### Routing packets
 All packets sent from the routing_daemon will have 3 chars that identifies the type of the packet. (3 first chars of the sdu) RES-response, REQ-request, UPD-update, HLO-hello. Then follows one char with the total number of pairs. A pair is a MIP-address and the distance to it. 
 
-### Linked list
+### Routing linked list
+The routing table is stored as a linked list that contains the mip-target, the distance and the next node on the way. 
+
 
 ### ARP cache
-Since I implemented the cache to store all addresses that it receives from, it now also stores 
+Since I implemented the arp-cache to store all addresses that it receives from the raw socket, it now stores addresses that are not neighbors. I choose to let this stay the way it is since this does not affect the routing process.  

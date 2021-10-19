@@ -445,6 +445,12 @@ void print_cache(){
 }
 
 void handle_new_client(struct pollfd *pending_connections, int client_fd){
+    /*
+    * sets the pending connection into the last part of fds, wich is called pending_connections
+    
+    * pending_connections: the last part of fds, reserved for pending connections
+    * client_fd: the new connection fd
+    */
     for (int y=0; y<MAX_EVENTS; y++){
         if (pending_connections[y].fd == 0){
             pending_connections[y].fd = client_fd;
@@ -455,6 +461,13 @@ void handle_new_client(struct pollfd *pending_connections, int client_fd){
 }
 
 void identify_unix_client(struct pollfd *fds, int index){
+    /*
+    * puts the new client on the appropriate position in the fds. 
+    * The client can be a PING host or a routing daemon. 
+    
+    * fds: list of filedescriptors
+    * index: index of the new client in fds 
+    */
     char buffer[BUFSIZE];
     read(fds[index].fd, buffer, 1);
     uint8_t identifier = buffer[0];
@@ -612,7 +625,7 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                 // its a routing message
                 else if (hdr->sdu_type == 0x04) {
                     char *translation = (char*)&raw_buffer[sizeof(struct mip_hdr)];
-                    send_to_router(translation, hdr->sdu_len, hdr->src, fds[3].fd);
+                    write_to_unix_socket(translation, hdr->sdu_len, hdr->src, fds[3].fd, 0);
                 }
             }
             // client wants to identify
