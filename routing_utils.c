@@ -304,6 +304,7 @@ void read_from_socket(int sock_server, char* buffer, bool *done, struct node *ro
     * sock_server: socket fd
     * buffer: to store message
     * done: boolean to stop the program
+    * routing_list: the routing table, linked list
     */
     int rc;
     if ((rc = read(sock_server, buffer, BUFSIZE)) == -1 || rc == 0){
