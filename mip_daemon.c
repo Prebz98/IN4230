@@ -22,8 +22,8 @@
 bool debug_mode;
 struct cache cache_table[CACHE_TABLE_LEN];
 int cache_current_len = 0;
-struct unix_packet waiting_message;
-int waiting_msg_len = 0;
+struct raw_packet waiting_message;
+int waiting_sdu_len = 0;
 bool termination = false;
 
 void argparser(int argc, char **argv, char* path, uint8_t *mip_addr) {
@@ -473,58 +473,58 @@ void identify_unix_client(struct pollfd *fds, int index){
     }
 }
 
-void create_raw_packet(uint8_t mip_dst, uint8_t mip_addr, struct pollfd *fds){
-    if (mip_dst == waiting_message.mip){
-        // mip is in cache-> send it 
-        int index;
-        uint8_t raw_buffer[BUFSIZE];
-        struct sockaddr_ll senders_iface;
-        if ((index = check_cache(mip_dst)) != -1){
-            //create packet
-            struct mip_hdr mip_hdr = create_mip_hdr(mip_dst, mip_addr, 1, waiting_msg_len, 0x02);
-            char *msg = waiting_message.msg;
+// void create_raw_packet(uint8_t mip_dst, uint8_t mip_addr, struct pollfd *fds){
+//     if (mip_dst == waiting_message.mip){
+//         // mip is in cache-> send it 
+//         int index;
+//         uint8_t raw_buffer[BUFSIZE];
+//         struct sockaddr_ll senders_iface;
+//         if ((index = check_cache(mip_dst)) != -1){
+//             //create packet
+//             struct mip_hdr mip_hdr = create_mip_hdr(mip_dst, mip_addr, 1, waiting_msg_len, 0x02);
+//             char *msg = waiting_message.msg;
 
-            memset(raw_buffer, 0, BUFSIZE);
-            memcpy(raw_buffer, &mip_hdr, sizeof(struct mip_hdr));
-            memcpy(&raw_buffer[4], msg, waiting_msg_len);
-            memcpy(&senders_iface, &cache_table[index].iface, sizeof(struct sockaddr_ll));
+//             memset(raw_buffer, 0, BUFSIZE);
+//             memcpy(raw_buffer, &mip_hdr, sizeof(struct mip_hdr));
+//             memcpy(&raw_buffer[4], msg, waiting_msg_len);
+//             memcpy(&senders_iface, &cache_table[index].iface, sizeof(struct sockaddr_ll));
 
-            check_cache(mip_dst);
-            send_raw_packet(&fds[1].fd, &senders_iface, raw_buffer, sizeof(struct mip_hdr)+waiting_msg_len, cache_table[index].mac);
+//             check_cache(mip_dst);
+//             send_raw_packet(&fds[1].fd, &senders_iface, raw_buffer, sizeof(struct mip_hdr)+waiting_msg_len, cache_table[index].mac);
         
-        }
-        // else { //mip not in cache -> arp-req
-        //     //saving waiting message
-        //     struct unix_packet packet_to_save;
-        //     packet_to_save.mip = mip_dst;
-        //     packet_to_save.ttl = 0;
-        //     memcpy(packet_to_save.msg, up->msg, size);
-        //     waiting_message = packet_to_save;
-        //     waiting_msg_len = size;
+//         }
+//         // else { //mip not in cache -> arp-req
+//         //     //saving waiting message
+//         //     struct unix_packet packet_to_save;
+//         //     packet_to_save.mip = mip_dst;
+//         //     packet_to_save.ttl = 0;
+//         //     memcpy(packet_to_save.msg, up->msg, size);
+//         //     waiting_message = packet_to_save;
+//         //     waiting_msg_len = size;
 
-        //     //creating arp request
-        //     struct arp_sdu arp_req_sdu = create_arp_sdu(mip_dst, true);
-        //     struct mip_hdr mip_hdr = create_mip_hdr(255, mip_addr, 1, sizeof(struct arp_sdu), 0x01);
-        //     memset(raw_buffer, 0, BUFSIZE);
-        //     memcpy(raw_buffer, &mip_hdr, sizeof(struct mip_hdr));
-        //     memcpy(&raw_buffer[4], &arp_req_sdu, sizeof(struct arp_sdu));
-        //     int num_if = get_mac_from_interface(senders_iface);
-        //     if (debug_mode){
-        //         printf("Creating broadcast\n");
-        //     }
-        //     uint8_t broadcast_mac[6] = DST_MAC_ADDR;
-        //     for (int i=0; i<num_if; i++){
-        //         send_raw_packet(&fds[1].fd, &senders_iface[i], raw_buffer, 8, broadcast_mac);
-        //     }
-        //     if (debug_mode){
-        //         printf(LINE);
-        //         printf("Creating MIP-ARP request\nArp type: %d\nMip address: %d\n", arp_req_sdu.type, arp_req_sdu.address);
-        //     }
-        // }
-    }else {
-        printf("Message is no longer avaliable\n");
-    }
-}
+//         //     //creating arp request
+//         //     struct arp_sdu arp_req_sdu = create_arp_sdu(mip_dst, true);
+//         //     struct mip_hdr mip_hdr = create_mip_hdr(255, mip_addr, 1, sizeof(struct arp_sdu), 0x01);
+//         //     memset(raw_buffer, 0, BUFSIZE);
+//         //     memcpy(raw_buffer, &mip_hdr, sizeof(struct mip_hdr));
+//         //     memcpy(&raw_buffer[4], &arp_req_sdu, sizeof(struct arp_sdu));
+//         //     int num_if = get_mac_from_interface(senders_iface);
+//         //     if (debug_mode){
+//         //         printf("Creating broadcast\n");
+//         //     }
+//         //     uint8_t broadcast_mac[6] = DST_MAC_ADDR;
+//         //     for (int i=0; i<num_if; i++){
+//         //         send_raw_packet(&fds[1].fd, &senders_iface[i], raw_buffer, 8, broadcast_mac);
+//         //     }
+//         //     if (debug_mode){
+//         //         printf(LINE);
+//         //         printf("Creating MIP-ARP request\nArp type: %d\nMip address: %d\n", arp_req_sdu.type, arp_req_sdu.address);
+//         //     }
+//         // }
+//     }else {
+//         printf("Message is no longer avaliable\n");
+//     }
+// }
 
 void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t mip_addr){
     /*
@@ -619,20 +619,22 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                         if (debug_mode){
                             printf("It was an ARP responce from %d\n",hdr->src);
                         }
-                        if (waiting_message.mip != sdu->address){
+                        if (waiting_message.hdr.dst != sdu->address){
                             printf("Message to %d is no longer available\n", sdu->address);
                         }
                         //get message to be sent
-                        uint8_t mip_dst = waiting_message.mip;
-                        char *msg = waiting_message.msg;
+                        uint8_t mip_dst = waiting_message.hdr.dst; 
                         
-                        //create packet
-                        struct mip_hdr mip_hdr = create_mip_hdr(mip_dst, mip_addr, 1, waiting_msg_len, 0x02);
+                        //create packet TODO
+                        // struct mip_hdr mip_hdr = create_mip_hdr(mip_dst, mip_addr, 1, waiting_msg_len, 0x02);
+                        // memset(raw_buffer, 0, BUFSIZE);
+                        // memcpy(raw_buffer, &mip_hdr, sizeof(struct mip_hdr));
+                        // memcpy(&raw_buffer[4], msg, waiting_msg_len);
+                        
                         memset(raw_buffer, 0, BUFSIZE);
-                        memcpy(raw_buffer, &mip_hdr, sizeof(struct mip_hdr));
-                        memcpy(&raw_buffer[4], msg, waiting_msg_len);
+                        memcpy(raw_buffer, &waiting_message, sizeof(struct mip_hdr)+waiting_sdu_len);
                         int index = check_cache(mip_dst);
-                        send_raw_packet(&fds[1].fd, senders_iface, raw_buffer, sizeof(struct mip_hdr)+waiting_msg_len, cache_table[index].mac);
+                        send_raw_packet(&fds[1].fd, senders_iface, raw_buffer, sizeof(struct mip_hdr)+waiting_sdu_len, cache_table[index].mac);
 
                         if (debug_mode){
                             printf("Ping message sent to %d\n", mip_dst);
@@ -658,12 +660,11 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                     uint8_t msg_len = size-sizeof(struct mip_hdr);
                     //ttl --
                     // saving waiting message
-                    struct unix_packet packet_to_save;
-                    packet_to_save.mip = hdr->dst;
-                    packet_to_save.ttl = 0; //TODO
-                    memcpy(packet_to_save.msg, msg, msg_len);
-                    waiting_message = packet_to_save;
-                    waiting_msg_len = size;
+                    struct raw_packet packet_to_save;
+                    memcpy(&packet_to_save, raw_buffer, size);
+                    memset(&waiting_message, 0, BUFSIZE);
+                    memcpy(&waiting_message, &packet_to_save, size);
+                    waiting_sdu_len = size;
                     send_req_to_router(mip_addr, hdr->dst, fds[3].fd);
                 }
                 // its a routing message
@@ -679,7 +680,7 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
             }
             // routing daemon has sent a message
             else if (fds[i].revents & POLLIN && (i==3)) {
-                handle_routing_msg(fds, mip_addr, cache_table, &waiting_message, waiting_msg_len);
+                handle_routing_msg(fds, mip_addr, cache_table, &waiting_message, waiting_sdu_len);
             }
             // a client has sent a message
             else if (fds[i].revents & POLLIN){
@@ -708,13 +709,22 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                     printf("Sent a request to router\n");
                 }
                 // saving waiting message
-                struct unix_packet packet_to_save;
-                packet_to_save.mip = mip_dst;
-                packet_to_save.ttl = 0; //TODO
-                memcpy(packet_to_save.msg, up->msg, size);
-                waiting_message = packet_to_save;
-                waiting_msg_len = size;
+                struct raw_packet packet_to_save;
+                
+                //creating header
+                struct mip_hdr hdr_to_save;
+                hdr_to_save.dst = mip_dst;
+                hdr_to_save.src = mip_addr;
+                hdr_to_save.ttl = 0; //TODO
+                hdr_to_save.sdu_type = 0x02;
+                hdr_to_save.sdu_len = size;
+                packet_to_save.hdr = hdr_to_save;
 
+                //creating message
+                memcpy(packet_to_save.sdu, up->msg, size);
+                
+                waiting_message = packet_to_save;
+                waiting_sdu_len = size;
             }
         }
     }

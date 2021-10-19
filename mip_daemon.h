@@ -25,14 +25,6 @@ struct arp_sdu {
     uint32_t padding : 23;
 }__attribute__((packed));
 
-struct mip_hdr {
-    uint8_t dst;
-    uint8_t src;
-    uint8_t ttl : 4;
-    uint16_t sdu_len : 9;
-    uint8_t sdu_type : 3;
-}__attribute__((packed));
-
 struct cache {
     uint8_t mip;
     struct sockaddr_ll iface;
@@ -51,7 +43,7 @@ void print_mac(uint8_t* mac);
 struct mip_hdr create_mip_hdr(uint8_t dst, uint8_t src, uint8_t ttl, uint16_t sdu_len, uint8_t sdu_type);
 int get_mac_from_interface(struct sockaddr_ll *senders_iface);
 int send_raw_packet(int *raw_sock, struct sockaddr_ll *so_name, uint8_t *buf, size_t len, uint8_t dst_mac[6]);
-void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_table, struct unix_packet *waiting_message, int waiting_msg_len);
+void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_table, struct raw_packet *waiting_message, int waiting_msg_len);
 void send_to_router(char *msg, uint8_t msg_size, uint8_t mip_dst, int sock_server);
 void write_to_unix_socket(char *msg, uint8_t msg_size, uint8_t mip_dst, int sock_server, uint8_t ttl);
 int check_cache(uint8_t mip);
