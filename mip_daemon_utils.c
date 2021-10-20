@@ -106,7 +106,7 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
 
         uint8_t next_mip = packet->msg[3];
         if (next_mip == 255){ //unknown path
-            printf("Dont know the path to %d\n", packet->msg[0]);
+            printf("Dont know the path to %d\n", waiting_message->hdr.dst);
             return;
         }
         printf("HEHE %d\n", next_mip);

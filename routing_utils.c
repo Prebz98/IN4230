@@ -13,6 +13,7 @@
 #include "routing_daemon.h"
 #include <sys/time.h>
 
+
 void error(int ret, char *msg) {
     //program error
     if (ret == -1) {
@@ -154,6 +155,11 @@ void free_linked_list(struct node *list){
 }
 
 void print_routing_list(struct node *list){
+    /*
+    * prints the routing list
+
+    * list: the first node of the routing list
+    */
     printf("\nRouting list:\n");
     struct node *x = list;
 
@@ -390,5 +396,37 @@ void identify_broken_path(struct node *routing_list, int sock_server){
             }
         }
     }
+}
+
+int argparser(int argc, char **argv, char* path) {
+    /*
+    * parses all arguments
+
+    * path: path to unix socket fd
+    */
+    int index;
+    int c;
+
+    opterr = 0;
+
+    while ((c = getopt (argc, argv, "h")) != -1)
+        switch (c)
+        {
+        case 'h':
+            printf("How to run\n./routing_daemon [-h] <socket lower>\nAlternative: Use the makefile commands.\n");
+            printf("Optional args:\n\
+            -h Help\n\
+            Non-optional args:\n\
+            Socket lower: filename for unix socket to lower layer\n\n");
+            printf("Program description:\nThe program will identidy itself to the MIP_daemon through the unix socket. Then it will communicate with other routing daemons through the MIP_daemon. It will create a routing table and keep updating it. It shuts down when the connection to the MIP_daemon is lost.\n");
+            exit(EXIT_SUCCESS);
+            break;
+        default:
+            abort ();
+        }
+
+    index = optind;
+    strcpy(path, argv[index]);
+    return 0;
 }
 

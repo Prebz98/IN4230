@@ -37,7 +37,7 @@ int main(int argc, char* argv[]){
     gettimeofday(&time_sent_hlo, NULL);
 
     while (!done) {
-        poll(&pollfd, 1, 1);
+        poll(&pollfd, 1, 2500);
         //write hello every 5th second 
         gettimeofday(&current_time, NULL);
         if (((current_time.tv_sec-time_sent_hlo.tv_sec)) > 5){
