@@ -596,12 +596,12 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                 }else if (hdr->sdu_type == 0x02 && hdr->dst == mip_addr) {
                     int index = sizeof(struct mip_hdr);
                     char *translation = (char*)raw_buffer; 
-                    uint8_t total_size = hdr->sdu_len;
+                    uint8_t total_size = hdr->sdu_len*4;
                     struct unix_packet up;
                     memset(&up, 0, sizeof(struct unix_packet));
                     up.mip = hdr->src;
                     up.ttl = 0;
-                    memcpy(up.msg, &translation[index], hdr->sdu_len);
+                    memcpy(up.msg, &translation[index], total_size);
                     write(fds[2].fd, &up, total_size);
                     if (debug_mode){
                         printf("\nSent message to client with unix socket\nMessage: %s\n", &translation[index]);
@@ -625,7 +625,7 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                 // its a routing message
                 else if (hdr->sdu_type == 0x04) {
                     char *translation = (char*)&raw_buffer[sizeof(struct mip_hdr)];
-                    write_to_unix_socket(translation, hdr->sdu_len, hdr->src, fds[3].fd, 0);
+                    write_to_unix_socket(translation, hdr->sdu_len*4, hdr->src, fds[3].fd, 0);
                 }
             }
             // client wants to identify
@@ -671,7 +671,7 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                 hdr_to_save.src = mip_addr;
                 hdr_to_save.ttl = up->ttl;
                 hdr_to_save.sdu_type = 0x02;
-                hdr_to_save.sdu_len = size;
+                hdr_to_save.sdu_len = size/4;
                 packet_to_save.hdr = hdr_to_save;
 
                 //creating message

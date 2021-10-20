@@ -4,13 +4,14 @@
 #include <sys/un.h>
 #include <stdbool.h>
 
-#define MAX_DISTANCE 254
+#define MAX_DISTANCE 255
 
 struct node {
     struct node* next;
     uint8_t mip;
     uint8_t distance;
     uint8_t next_mip;
+    struct timeval last_rcv;
 };
 
 struct update_pair {
@@ -24,3 +25,4 @@ void write_identifying_msg(int sock_server);
 void write_hello(int sock_server);
 void read_from_socket(int sock_server, char* buffer, bool *done, struct node *routing_list);
 void free_linked_list(struct node *list);
+void identify_broken_path(struct node *routing_list, int sock_server);

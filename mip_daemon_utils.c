@@ -45,7 +45,7 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
     if (rc == -1){
         error(rc, "read from socket");
     }
-    uint8_t size = rc;
+    uint8_t sdu_len = rc/4;
     struct unix_packet *packet = (struct unix_packet*)buffer;
 
     //its a hello message
@@ -53,7 +53,7 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
         uint8_t raw_buffer[BUFSIZE];
         memset(raw_buffer, 0, BUFSIZE);
 
-        struct mip_hdr hdr = create_mip_hdr(255, my_mip, 1, size, 0x04);
+        struct mip_hdr hdr = create_mip_hdr(255, my_mip, 1, sdu_len, 0x04);
         memcpy(raw_buffer, &hdr, sizeof(struct mip_hdr));
         memcpy(&raw_buffer[4], ROUTING_HELLO, 3);
 
@@ -107,7 +107,9 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
         uint8_t next_mip = packet->msg[3];
         if (next_mip == 255){ //unknown path
             printf("Dont know the path to %d\n", packet->msg[0]);
+            return;
         }
+        printf("HEHE %d\n", next_mip);
 
         int cache_index = check_cache(next_mip);
         if (cache_index == -1){

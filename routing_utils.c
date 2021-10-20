@@ -1,4 +1,5 @@
 #include "general.h"
+#include <bits/types/struct_timeval.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <string.h>
@@ -6,9 +7,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/un.h>
+#include <time.h>
 #include <unistd.h>
 #include <stdbool.h>
 #include "routing_daemon.h"
+#include <sys/time.h>
 
 void error(int ret, char *msg) {
     //program error
@@ -93,11 +96,14 @@ void add_to_linked_list(uint8_t distance, uint8_t mip, uint8_t next_mip, struct 
         current_node = current_node->next;
     }
     struct node *end_node = current_node;
+    struct timeval time;
+    gettimeofday(&time, NULL);
 
     struct node *new = malloc(sizeof(struct node));
     new->distance = distance;
     new->mip = mip;
     new->next_mip = next_mip;
+    new->last_rcv = time;
     end_node->next = new;
 }
 
@@ -109,12 +115,14 @@ int handle_hello(uint8_t mip, struct node *routing_list){
     *
     * returns 1 if a change was made, else 0
     */
-
+    struct timeval time;
     struct node *i = routing_list;
     //checks if the address is saved with higher distance
     while (i->next != NULL) {
         i = i->next;
         if (i->mip == mip){
+            gettimeofday(&time, NULL);
+            i->last_rcv = time;
             if (i->distance != 1){
                 i->distance = 1;
                 return 1;
@@ -156,12 +164,12 @@ void print_routing_list(struct node *list){
     printf("\n");
 }
 
-void send_update(struct node *routing_list, int sock_server, uint8_t mip_caused_update){
+void send_update(struct node *routing_list, int sock_server){
     /*
     * sends an update message with the entire routing table
+    
     * routing_list: the routing table that we will send
     * sock_server: socket fd to send through
-    * mip_caused_update: mip that caused update
     */
     struct node *current_node_to_send = routing_list;
     
@@ -260,8 +268,14 @@ bool update_routing_list(struct unix_packet *packet, struct node *routing_list){
             //the address is known
             if (current_node->mip == current_pair.mip_target){
                 known_address = true;
+                // if current path is broken
+                if (current_pair.distance == MAX_DISTANCE &&
+                packet->mip == current_node->next_mip){
+                    current_node->distance = MAX_DISTANCE;
+                    change = true;
+                }
                 //if the prevous saved distance is bigger => swap
-                if (current_node->distance > current_pair.distance+1) {
+                else if (current_node->distance > current_pair.distance+1) {
                     current_node->distance = current_pair.distance+1;
                     change = true;   
                 }
@@ -284,14 +298,14 @@ uint8_t lookup(uint8_t mip_target, struct node *routing_list){
     * routing_list: the routing table
 
     * returns: (uint8_t) the mip address to send the packet to
-    * returns 0 if the target is not found
+    * returns 255 if the target is not found, or if the distance is MAX
     */
     struct node *current_node = routing_list;
 
     while (current_node->next != NULL) {
         current_node = current_node->next;
 
-        if (current_node->mip == mip_target){
+        if (current_node->mip == mip_target && current_node->distance != MAX_DISTANCE){
             return current_node->next_mip;
         }
     }
@@ -301,6 +315,7 @@ uint8_t lookup(uint8_t mip_target, struct node *routing_list){
 void read_from_socket(int sock_server, char* buffer, bool *done, struct node *routing_list){
     /*
     * reads a message from unix socket, stops if connection is closed or an error occurs
+    
     * sock_server: socket fd
     * buffer: to store message
     * done: boolean to stop the program
@@ -321,7 +336,7 @@ void read_from_socket(int sock_server, char* buffer, bool *done, struct node *ro
         //update table, if a change was made, send an update
         int res = handle_hello(packet->mip, routing_list);
         if (res == 1){
-            send_update(routing_list, sock_server, packet->mip);
+            send_update(routing_list, sock_server);
         }
     }
     //its an update, update the table
@@ -329,7 +344,7 @@ void read_from_socket(int sock_server, char* buffer, bool *done, struct node *ro
         printf("It was an update message\n");
         //if a change was made, send an update
         if (update_routing_list(packet, routing_list)){
-            send_update(routing_list, sock_server, packet->mip);
+            send_update(routing_list, sock_server);
         }
     }
     //its a request, lookup the MIP and send a response
@@ -353,4 +368,27 @@ void read_from_socket(int sock_server, char* buffer, bool *done, struct node *ro
     print_routing_list(routing_list);
 }
 
+void identify_broken_path(struct node *routing_list, int sock_server){
+    /*
+    * if it is over 12 seconds since last hello from a neighbor -> max distance
+    
+    * routing_list: routing table as a linked list
+    * sock_server: fd to mip daemon
+    */
+    struct timeval current_time;
+    gettimeofday(&current_time, NULL);
+    
+    struct node *current_node = routing_list;
+    while (current_node->next != NULL) {
+        current_node = current_node->next;
+        if (current_node->distance == 1){
+            double diff = (double)(current_time.tv_sec - current_node->last_rcv.tv_sec);
+            if (diff > 12){
+                printf("%f\n", diff);
+                current_node->distance = MAX_DISTANCE;
+                send_update(routing_list, sock_server);
+            }
+        }
+    }
+}
 
