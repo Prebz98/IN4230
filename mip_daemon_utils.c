@@ -2,6 +2,7 @@
 #include <linux/if_packet.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/poll.h>
 #include <sys/types.h>
@@ -28,7 +29,7 @@ void send_req_to_router(uint8_t mip_from, uint8_t mip_to, int router_socket){
     write(router_socket, packet, 8);
 }
 
-void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_table, struct raw_packet *waiting_message, int waiting_sdu_len){
+void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_table, struct routing_queue *routing_queue){
     /*
     * takes one message from the routing_daemon and acts based on the type of message. (hello, update, response)
 
@@ -106,10 +107,9 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
 
         uint8_t next_mip = packet->msg[3];
         if (next_mip == 255){ //unknown path
-            printf("Dont know the path to %d\n", waiting_message->hdr.dst);
+            printf("Dont know the path\n");
             return;
         }
-        printf("HEHE %d\n", next_mip);
 
         int cache_index = check_cache(next_mip);
         if (cache_index == -1){
@@ -128,15 +128,65 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
             }
         }else { //mip in cache
             struct sockaddr_ll interface;
+            struct raw_packet packet = pop_routing_queue(routing_queue);
 
-            uint8_t size = sizeof(struct mip_hdr)+waiting_sdu_len;
+            uint8_t size = (packet.hdr.sdu_len*4) + 4;
             uint8_t rest = size % 4;
             size += rest ? 4-rest : 0;
 
-            memcpy(raw_buffer, waiting_message, size);
+            memcpy(raw_buffer, &packet, size);
             memcpy(&interface, &cache_table[cache_index].iface, sizeof(struct sockaddr_ll));
 
             send_raw_packet(&fds[1].fd, &interface, raw_buffer, size, cache_table[cache_index].mac);
         }
     }
+}
+
+void add_to_routing_queue(struct routing_queue *routing_queue, struct raw_packet packet){
+    struct routing_queue *current_node = routing_queue;
+
+    while (current_node->next != NULL) {
+        current_node = current_node->next;
+    }
+
+    struct routing_queue *new = malloc(sizeof(struct routing_queue));
+    new->packet = packet;
+    new->next = NULL;
+
+    current_node->next = new;
+}
+
+struct raw_packet pop_routing_queue(struct routing_queue *routing_queue){
+    /*
+    * gets the first element of the queue if there is one, and removes it from the list
+
+    * routing_queue: routing queue linked list
+
+    * returns: (struct raw_packet) packet of the first node
+    */
+    struct routing_queue *current_node = routing_queue;
+
+    // if queue is empty, return empty packet
+    if (current_node->next == NULL){
+        printf("Queue is empty\n");
+        return routing_queue->packet;
+    }
+
+    current_node = current_node->next;
+    routing_queue->next = current_node->next;
+    struct raw_packet to_return = current_node->packet;
+    free(current_node);
+    return to_return;
+}
+
+void free_routing_queue(struct routing_queue *routing_queue){
+    /*
+    * free the routing_queue
+
+    * routing_queue: routing_queue
+    */
+    while (routing_queue->next != NULL) {
+        pop_routing_queue(routing_queue);
+    }
+    free(routing_queue);
 }

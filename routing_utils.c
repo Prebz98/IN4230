@@ -105,6 +105,7 @@ void add_to_linked_list(uint8_t distance, uint8_t mip, uint8_t next_mip, struct 
     new->mip = mip;
     new->next_mip = next_mip;
     new->last_rcv = time;
+    new->next = NULL;
     end_node->next = new;
 }
 
@@ -361,6 +362,7 @@ void read_from_socket(int sock_server, char* buffer, bool *done, struct node *ro
         uint8_t mip_next = lookup(mip_to, routing_list);
 
         char down_buf[BUFSIZE];
+        memset(down_buf, 0, BUFSIZE);
         struct unix_packet *down = (struct unix_packet*)down_buf;
         down->mip = mip_from;
         down->ttl = 0;
@@ -390,7 +392,6 @@ void identify_broken_path(struct node *routing_list, int sock_server){
         if (current_node->distance == 1){
             double diff = (double)(current_time.tv_sec - current_node->last_rcv.tv_sec);
             if (diff > 12){
-                printf("%f\n", diff);
                 current_node->distance = MAX_DISTANCE;
                 send_update(routing_list, sock_server);
             }

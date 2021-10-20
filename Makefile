@@ -162,3 +162,6 @@ valgrindServerB: ping_server
 
 valgrindServerC: ping_server
 	${VALGRIND} ${MIP_SERVER_C}
+
+valgrindRouterA: routing_daemon
+	${VALGRIND} ${ROUTING_DAEMON_A}

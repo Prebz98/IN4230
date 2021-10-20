@@ -1,6 +1,7 @@
 #include "mip_daemon.h"
 #include <bits/getopt_core.h>
 #include <bits/types/struct_iovec.h>
+#include <bits/types/struct_timeval.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -8,6 +9,7 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <sys/poll.h>
+#include <sys/time.h>
 #include <sys/un.h>
 #include <sys/socket.h>
 #include <ctype.h>
@@ -24,7 +26,7 @@ struct cache cache_table[CACHE_TABLE_LEN];
 int cache_current_len = 0;
 struct raw_packet waiting_message;
 int waiting_sdu_len = 0;
-bool termination = false;
+struct routing_queue *routing_queue;
 
 void argparser(int argc, char **argv, char* path, uint8_t *mip_addr) {
     /*
@@ -44,26 +46,22 @@ void argparser(int argc, char **argv, char* path, uint8_t *mip_addr) {
 
     opterr = 0;
 
-    while ((c = getopt (argc, argv, "hdt")) != -1)
+    while ((c = getopt (argc, argv, "hd")) != -1)
         switch (c)
         {
         case 'h':
-            printf("How to run\n./mip_daemon [-h] [-d] [-t] <socket_upper> <MIP address>\nAlternative: Use the makefile commands.\nMake all to compilate all files, then runDaemonA to run a daemon for node A. Likewise runDaemonB for B and runDaemonC for C\n");
+            printf("How to run\n./mip_daemon [-h] [-d] <socket_upper> <MIP address>\nAlternative: Use the makefile commands.\nMake all to compilate all files, then runDaemonA to run a daemon for node A. Likewise runDaemonB for B and runDaemonC for C\n");
             printf("Optional args:\n\
             -h Help\n\
             -d Debug mode\n\
-            -t Termination\n\
             Non-optional args:\n\
             socket_upper: filename for unix socket to upper layer\n\
             MIP address: MIP address for the connected application.\n\n");
-            printf("Program description:\nThe mip-daemon will open a unix socket for a ping_client or a ping_server to connect.\nIf it receives a ping-message through the unix socket, it will use a raw socket to send the message to the spesified MIP-address. \nAnother MIP-daemon can recieve this message and pass it on through its own unix socket. \nIf there is no activity for 10 seconds and the termination flag is set, the program stops.\n");
+            printf("Program description:\nThe mip-daemon will open a unix socket for a ping_client or a ping_server to connect, as well as a unix socket for a routing daemon.\nIf it receives a ping-message from the PING-host, it will ask send a request to the routing daemon to find the best path.\nThe MIP-daemon forwards all traffic to the targets sat by the routing daemon. \nIf there is no activity for 60 seconds, the program stops.\n");
             exit(EXIT_SUCCESS);
             break;
         case 'd':
             debug_mode = true;
-            break;
-        case 't':
-            termination = true;
             break;
         default:
             abort ();
@@ -506,10 +504,16 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
     int res, sock_client;
     struct sockaddr_ll senders_iface[MAX_IF];
     struct pollfd *pending_connections = &fds[MAX_EVENTS];
+    struct timeval start, now;
+    gettimeofday(&start, NULL);
 
     //if termination is false, then the program will not stop
     //if termination is true, the program stops after polling for 10 seconds with inactivity
-    while ((res = poll(fds, MAX_EVENTS+NUMBER_OF_UNIX_CONNECTIONS, timeout_msecs)) > 0 || !termination){
+    while ((res = poll(fds, MAX_EVENTS+NUMBER_OF_UNIX_CONNECTIONS, timeout_msecs)) > 0){
+        gettimeofday(&now, NULL);
+        if ((now.tv_sec-start.tv_sec) > 60){
+            return;
+        }
         if (debug_mode){
             printf(LINE);
             printf("%d events found\n", res);
@@ -615,9 +619,8 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                         // saving waiting message
                         struct raw_packet packet_to_save;
                         memcpy(&packet_to_save, raw_buffer, size);
-                        memset(&waiting_message, 0, BUFSIZE);
-                        memcpy(&waiting_message, &packet_to_save, size);
-                        waiting_sdu_len = size;
+                        add_to_routing_queue(routing_queue, packet_to_save);
+
                         send_req_to_router(mip_addr, hdr->dst, fds[3].fd);
                         printf("PING message passed along\n");
                     }
@@ -634,7 +637,7 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
             }
             // routing daemon has sent a message
             else if (fds[i].revents & POLLIN && (i==3)) {
-                handle_routing_msg(fds, mip_addr, cache_table, &waiting_message, waiting_sdu_len);
+                handle_routing_msg(fds, mip_addr, cache_table, routing_queue);
             }
             // a client has sent a message
             else if (fds[i].revents & POLLIN){
@@ -676,9 +679,7 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
 
                 //creating message
                 memcpy(packet_to_save.sdu, up->msg, size);
-                
-                waiting_message = packet_to_save;
-                waiting_sdu_len = size;
+                add_to_routing_queue(routing_queue, packet_to_save);
                 printf("Will send a PING message!\n");
             }
         }
@@ -707,6 +708,8 @@ int main(int argc, char** argv) {
     memset(fds, 0, sizeof(fds));
     memset(cache_table, 0, sizeof(cache_table));
     argparser(argc, argv, path, &mip_addr);
+    routing_queue = malloc(sizeof(struct routing_queue));
+    routing_queue->next = NULL;
 
     //main flow
     setup_unix_socket(path, &sock_server, serv_addr);
@@ -717,5 +720,6 @@ int main(int argc, char** argv) {
     // close socket 
     close(sock_server);
     close(raw_sock);
+    free_routing_queue(routing_queue);
     return 0;
 }

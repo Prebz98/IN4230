@@ -14,18 +14,17 @@ int main(int argc, char* argv[]){
     /*
     * 
     */
-
+    char path[BUFSIZE];
+    argparser(argc, argv, path);
     struct timeval time_sent_hlo, current_time;
     int sock_server;
     struct sockaddr_un serv_addr;
-    char path[BUFSIZE];
     bool done = false;
     char buffer[BUFSIZE];
     struct node *routing_list = malloc(sizeof(struct node));
     routing_list->next = NULL;
     routing_list->mip = 0;
 
-    strcpy(path, argv[1]);
     sock_server = 0;
     socket_setup(path, &sock_server, &serv_addr);
     struct pollfd pollfd;
