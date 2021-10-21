@@ -295,6 +295,7 @@ bool update_broken_paths(struct node *routing_list){
 bool update_routing_list(struct unix_packet *packet, struct node *routing_list){
     /*
     * updating the routing table
+    
     * packet: the update packet received
     * routing_list: current routing list
     */
