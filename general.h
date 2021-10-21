@@ -9,6 +9,7 @@
 #define ROUTING_UPDATE "UPD"
 #define ROUTING_REQUEST "REQ"
 #define ROUTING_RESPONSE "RES"
+#define MAX_NODES 20
 
 struct unix_packet {
     uint16_t mip : 8;

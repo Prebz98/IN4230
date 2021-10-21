@@ -249,6 +249,49 @@ void send_update(struct node *routing_list, int sock_server){
     }
 }
 
+bool update_broken_paths(struct node *routing_list){
+    /*
+    * if a node X has max distance, then all other nodes that has X as next hop also needs max distance
+    * this has to go on until no further change is made
+
+    * routing_list: routing_list linked list
+    */
+    bool done = true;
+    bool change = false;
+    while (done){
+        done = false;
+        int index = 0;
+        uint8_t update_list[MAX_NODES];
+        struct node *current_node = routing_list;
+
+        //filling the list with all nodes that has MAX_DISTANCE
+        while (current_node->next != NULL) {
+            current_node = current_node->next;
+            if (current_node->distance == MAX_DISTANCE){
+                update_list[index] = current_node->mip;
+                index++;
+            }
+        }
+
+        //updating all nodes that want to use a broken path
+        //for all mips with max distance:
+        for (int i=0; i<index; i++) {
+            current_node = routing_list;
+            //go throygh all nodes
+            while (current_node->next != NULL) {
+                current_node = current_node->next;
+                //if a node does not have MAX distanse and its next hop is in update_list
+                if (current_node->distance != MAX_DISTANCE && update_list[i] == current_node->next_mip){
+                    current_node->distance = MAX_DISTANCE; //set its distance to max
+                    done = true;
+                    change = true;
+                }
+            }
+        }
+    }
+    return change; 
+}
+
 bool update_routing_list(struct unix_packet *packet, struct node *routing_list){
     /*
     * updating the routing table
@@ -295,6 +338,7 @@ bool update_routing_list(struct unix_packet *packet, struct node *routing_list){
         }
         i++;
     }
+    if (update_broken_paths(routing_list)) {change = true;}
     return change;
 }
 
