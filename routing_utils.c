@@ -158,7 +158,6 @@ void free_linked_list(struct node *list){
 void print_routing_list(struct node *list){
     /*
     * prints the routing list
-
     * list: the first node of the routing list
     */
     printf("\nRouting list:\n");
@@ -295,7 +294,7 @@ bool update_broken_paths(struct node *routing_list){
 bool update_routing_list(struct unix_packet *packet, struct node *routing_list){
     /*
     * updating the routing table
-    
+
     * packet: the update packet received
     * routing_list: current routing list
     */
