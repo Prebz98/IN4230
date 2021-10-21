@@ -29,7 +29,7 @@ void send_req_to_router(uint8_t mip_from, uint8_t mip_to, int router_socket){
     write(router_socket, packet, 8);
 }
 
-void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_table, struct routing_queue *routing_queue){
+void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_table, struct waiting_queue *routing_queue, struct waiting_queue *arp_queue){
     /*
     * takes one message from the routing_daemon and acts based on the type of message. (hello, update, response)
 
@@ -92,7 +92,7 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
 
         //target mip not found
         if (cache_index == -1){
-            //broadcast?
+            //arp req?
             error(cache_index, "cant find the requested MIP address\n");
         }else { //mip found in cache -> send
             interface = cache_table[cache_index].iface;
@@ -114,6 +114,11 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
         int cache_index = check_cache(next_mip);
         if (cache_index == -1){
             //mip not in cache -> arp-req
+            //save message
+            struct raw_packet packet_to_send = pop_waiting_queue(routing_queue);
+            add_to_waiting_queue(arp_queue, packet_to_send);
+
+            //create arp request
             struct arp_sdu arp_req_sdu = create_arp_sdu(next_mip, true);
             struct mip_hdr mip_hdr = create_mip_hdr(255, my_mip, 1, sizeof(struct arp_sdu), 0x01);
             memset(raw_buffer, 0, BUFSIZE);
@@ -128,7 +133,7 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
             }
         }else { //mip in cache
             struct sockaddr_ll interface;
-            struct raw_packet packet = pop_routing_queue(routing_queue);
+            struct raw_packet packet = pop_waiting_queue(routing_queue);
 
             uint8_t size = (packet.hdr.sdu_len*4) + 4;
             uint8_t rest = size % 4;
@@ -142,21 +147,21 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
     }
 }
 
-void add_to_routing_queue(struct routing_queue *routing_queue, struct raw_packet packet){
-    struct routing_queue *current_node = routing_queue;
+void add_to_waiting_queue(struct waiting_queue *routing_queue, struct raw_packet packet){
+    struct waiting_queue *current_node = routing_queue;
 
     while (current_node->next != NULL) {
         current_node = current_node->next;
     }
 
-    struct routing_queue *new = malloc(sizeof(struct routing_queue));
+    struct waiting_queue *new = malloc(sizeof(struct waiting_queue));
     new->packet = packet;
     new->next = NULL;
 
     current_node->next = new;
 }
 
-struct raw_packet pop_routing_queue(struct routing_queue *routing_queue){
+struct raw_packet pop_waiting_queue(struct waiting_queue *routing_queue){
     /*
     * gets the first element of the queue if there is one, and removes it from the list
 
@@ -164,7 +169,7 @@ struct raw_packet pop_routing_queue(struct routing_queue *routing_queue){
 
     * returns: (struct raw_packet) packet of the first node
     */
-    struct routing_queue *current_node = routing_queue;
+    struct waiting_queue *current_node = routing_queue;
 
     // if queue is empty, return empty packet
     if (current_node->next == NULL){
@@ -179,14 +184,44 @@ struct raw_packet pop_routing_queue(struct routing_queue *routing_queue){
     return to_return;
 }
 
-void free_routing_queue(struct routing_queue *routing_queue){
+void free_waiting_queue(struct waiting_queue *routing_queue){
     /*
     * free the routing_queue
 
     * routing_queue: routing_queue
     */
     while (routing_queue->next != NULL) {
-        pop_routing_queue(routing_queue);
+        pop_waiting_queue(routing_queue);
     }
     free(routing_queue);
+}
+
+void send_arp_queue(struct waiting_queue *arp_queue, uint8_t mip, struct pollfd *fds, struct cache *cache_table){
+    /*
+    * sending all messages targeted a specified mip
+
+    * arp_queue: the arp_queue linked list
+    * mip: the mip we will send to
+    */
+
+    uint8_t raw_buffer[BUFSIZE];
+
+    struct waiting_queue *current_node = arp_queue;
+    struct sockaddr_ll interface;
+    while (current_node->next != NULL) {
+        current_node = current_node->next;
+        //if the destination to the waiting message is equal to the one we now have -> send it
+        if (current_node->packet.hdr.dst == mip){
+            memset(raw_buffer, 0, BUFSIZE);
+            uint8_t size = sizeof(struct mip_hdr) + (4*current_node->packet.hdr.sdu_len);
+            memcpy(raw_buffer, &current_node->packet, size);
+            int index = check_cache(mip);
+
+            if (index == -1){
+                error(index, "Did not find mip in cache that should be there");
+            }
+            memcpy(&interface, &cache_table[index].iface, sizeof(struct sockaddr_ll));
+            send_raw_packet(&fds[1].fd, &interface, raw_buffer, size, cache_table[index].mac);
+        }
+    }
 }

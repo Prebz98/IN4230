@@ -24,9 +24,10 @@
 bool debug_mode;
 struct cache cache_table[CACHE_TABLE_LEN];
 int cache_current_len = 0;
-struct raw_packet waiting_message;
-int waiting_sdu_len = 0;
-struct routing_queue *routing_queue;
+// struct raw_packet waiting_message;
+// int waiting_sdu_len = 0;
+struct waiting_queue *routing_queue;
+struct waiting_queue *arp_queue;
 
 void argparser(int argc, char **argv, char* path, uint8_t *mip_addr) {
     /*
@@ -581,20 +582,8 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                         if (debug_mode){
                             printf("It was an ARP responce from %d\n",hdr->src);
                         }
-                        if (waiting_message.hdr.dst != sdu->address){
-                            printf("Message to %d is no longer available\n", sdu->address);
-                        }
-                        //get message to be sent
-                        uint8_t mip_dst = waiting_message.hdr.dst; 
-                        
-                        memset(raw_buffer, 0, BUFSIZE);
-                        memcpy(raw_buffer, &waiting_message, sizeof(struct mip_hdr)+waiting_sdu_len);
-                        int index = check_cache(mip_dst);
-                        send_raw_packet(&fds[1].fd, senders_iface, raw_buffer, sizeof(struct mip_hdr)+waiting_sdu_len, cache_table[index].mac);
-
-                        if (debug_mode){
-                            printf("Ping message sent to %d\n", mip_dst);
-                        }
+                        //sending all messages to found mip
+                        send_arp_queue(arp_queue, sdu->address, fds, cache_table);
                     }
                     //its a ping message for me
                 }else if (hdr->sdu_type == 0x02 && hdr->dst == mip_addr) {
@@ -614,12 +603,13 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                 } //its not for me, I have to pass it on
                 else if (hdr->sdu_type == 0x02 && hdr->dst != mip_addr) {
                     //ttl --
+                    if (hdr->ttl == 0){continue;}
                     hdr->ttl--;
-                    if (hdr->ttl > 0){
+                    if (hdr->ttl > 0 || hdr->ttl != 15){
                         // saving waiting message
                         struct raw_packet packet_to_save;
                         memcpy(&packet_to_save, raw_buffer, size);
-                        add_to_routing_queue(routing_queue, packet_to_save);
+                        add_to_waiting_queue(routing_queue, packet_to_save);
 
                         send_req_to_router(mip_addr, hdr->dst, fds[3].fd);
                         printf("PING message passed along\n");
@@ -637,7 +627,7 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
             }
             // routing daemon has sent a message
             else if (fds[i].revents & POLLIN && (i==3)) {
-                handle_routing_msg(fds, mip_addr, cache_table, routing_queue);
+                handle_routing_msg(fds, mip_addr, cache_table, routing_queue, arp_queue);
             }
             // a client has sent a message
             else if (fds[i].revents & POLLIN){
@@ -679,7 +669,7 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
 
                 //creating message
                 memcpy(packet_to_save.sdu, up->msg, size);
-                add_to_routing_queue(routing_queue, packet_to_save);
+                add_to_waiting_queue(routing_queue, packet_to_save);
                 printf("Will send a PING message!\n");
             }
         }
@@ -708,8 +698,10 @@ int main(int argc, char** argv) {
     memset(fds, 0, sizeof(fds));
     memset(cache_table, 0, sizeof(cache_table));
     argparser(argc, argv, path, &mip_addr);
-    routing_queue = malloc(sizeof(struct routing_queue));
+    routing_queue = malloc(sizeof(struct waiting_queue));
     routing_queue->next = NULL;
+    arp_queue = malloc(sizeof(struct waiting_queue));
+    arp_queue->next = NULL;
 
     //main flow
     setup_unix_socket(path, &sock_server, serv_addr);
@@ -720,6 +712,7 @@ int main(int argc, char** argv) {
     // close socket 
     close(sock_server);
     close(raw_sock);
-    free_routing_queue(routing_queue);
+    free_waiting_queue(routing_queue);
+    free_waiting_queue(arp_queue);
     return 0;
 }

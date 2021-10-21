@@ -15,11 +15,11 @@ SOCK_C = tmp3
 SOCK_D = tmp4
 SOCK_E = tmp5
 
-MIP_DAEMON_A = ./mip_daemon ${SOCK_A} ${MIP_A}
-MIP_DAEMON_B = ./mip_daemon ${SOCK_B} ${MIP_B}
-MIP_DAEMON_C = ./mip_daemon ${SOCK_C} ${MIP_C}
-MIP_DAEMON_D = ./mip_daemon ${SOCK_D} ${MIP_D}
-MIP_DAEMON_E = ./mip_daemon ${SOCK_E} ${MIP_E}
+MIP_DAEMON_A = ./mip_daemon -d ${SOCK_A} ${MIP_A}
+MIP_DAEMON_B = ./mip_daemon -d ${SOCK_B} ${MIP_B}
+MIP_DAEMON_C = ./mip_daemon -d ${SOCK_C} ${MIP_C}
+MIP_DAEMON_D = ./mip_daemon -d ${SOCK_D} ${MIP_D}
+MIP_DAEMON_E = ./mip_daemon -d ${SOCK_E} ${MIP_E}
 
 # terminating versions
 MIP_DAEMON_A_t = ./mip_daemon -d -t ${SOCK_A} ${MIP_A}
@@ -37,11 +37,11 @@ MIP_CLIENT_EA = ./ping_client ${MIP_A} ${TTL} "Hello from C" ${SOCK_E}
 MIP_CLIENT_AE = ./ping_client ${MIP_E} ${TTL} "Hello from A" ${SOCK_A}
 MIP_CLIENT_AC = ./ping_client ${MIP_C} ${TTL} "Hello from A" ${SOCK_A}
 
-MIP_SERVER_A = ./ping_server ${SOCK_A}
-MIP_SERVER_B = ./ping_server ${SOCK_B}
-MIP_SERVER_C = ./ping_server ${SOCK_C}
-MIP_SERVER_D = ./ping_server ${SOCK_D}
-MIP_SERVER_E = ./ping_server ${SOCK_E}
+MIP_SERVER_A = ./ping_server ${TTL} ${SOCK_A}
+MIP_SERVER_B = ./ping_server ${TTL} ${SOCK_B}
+MIP_SERVER_C = ./ping_server ${TTL} ${SOCK_C}
+MIP_SERVER_D = ./ping_server ${TTL} ${SOCK_D}
+MIP_SERVER_E = ./ping_server ${TTL} ${SOCK_E}
 
 
 ROUTING_DAEMON_A = ./routing_daemon ${SOCK_A}

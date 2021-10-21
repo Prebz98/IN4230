@@ -17,7 +17,7 @@ bool debug_mode = true;
 bool done = false;
 
 //parsing the arguments
-int argparser(int argc, char **argv, char* path) {
+int argparser(int argc, char **argv, char* path, uint8_t *ttl) {
     /*
     * parses all arguments
     * argc: number of system arguments given
@@ -33,10 +33,11 @@ int argparser(int argc, char **argv, char* path) {
         switch (c)
         {
         case 'h':
-            printf("How to run\n./ping_client [-h] <socket lower>\nAlternative: Use the makefile commands.\n");
+            printf("How to run\n./ping_client [-h] <ttl> <socket lower>\nAlternative: Use the makefile commands.\n");
             printf("Optional args:\n\
             -h Help\n\
             Non-optional args:\n\
+            ttl: time to live\n\
             Socket lower: filename for unix socket to lower layer\n\n");
             printf("Program description:\nThe program listens to a unix socket and waits for a message. Then replacing the PING: part of the message with PONG: and sends it back. The program terminates if the socket closes.\n");
             exit(EXIT_SUCCESS);
@@ -46,7 +47,8 @@ int argparser(int argc, char **argv, char* path) {
         }
 
     index = optind;
-    strcpy(path, argv[index]);
+    *ttl = atoi(argv[index]);
+    strcpy(path, argv[index+1]);
     return 0;
 }
 
@@ -85,7 +87,7 @@ void setup_unix_socket(char *path) {
     return;
 }
 
-void write_to_socket(char *msg, int msg_size, uint8_t mip){
+void write_to_socket(char *msg, int msg_size, uint8_t mip, uint8_t ttl){
     /*
     * replace PING with PONG and send the message back
     * msg: message to be written
@@ -95,7 +97,7 @@ void write_to_socket(char *msg, int msg_size, uint8_t mip){
     memset(buffer, 0, BUFSIZE);
     struct unix_packet *down = (struct unix_packet*)buffer;
     down->mip = mip;
-    down->ttl = 0;
+    down->ttl = ttl;
     memcpy(down->msg, "PONG:", 5);
     memcpy(down->msg+5, &msg[5], msg_size);
 
@@ -118,7 +120,7 @@ void write_identifying_msg(){
     printf("Identify myself for daemon.\n");
 }
 
-void read_from_socket(){
+void read_from_socket(uint8_t ttl){
     /*
     * Listens to the socket until it receives a message
     * then writes back
@@ -133,20 +135,21 @@ void read_from_socket(){
     struct unix_packet *down = (struct unix_packet*)buffer;
     printf("Recieved %d bytes from: %d\n", rc, down->mip);
     printf("Message: %s\n", down->msg);
-    write_to_socket(down->msg, rc, down->mip);
+    write_to_socket(down->msg, rc, down->mip, ttl);
 }
 
 int main(int argc, char** argv){
     //the program listens to the socket until the socket closes. 
 
     char path[BUFSIZE];
-    argparser(argc, argv, path);
+    uint8_t ttl = 3;//default
+    argparser(argc, argv, path, &ttl);
     setup_unix_socket(path);
     write_identifying_msg();
     printf(LINE);
 
     while(!done){
-        read_from_socket();
+        read_from_socket(ttl);
     }
 
     clear_memory();

@@ -37,8 +37,8 @@ struct update_pair {
     uint8_t distance;
 };
 
-struct routing_queue {
-    struct routing_queue* next;
+struct waiting_queue {
+    struct waiting_queue* next;
     struct raw_packet packet;
 };
 
@@ -49,13 +49,14 @@ void print_mac(uint8_t* mac);
 struct mip_hdr create_mip_hdr(uint8_t dst, uint8_t src, uint8_t ttl, uint16_t sdu_len, uint8_t sdu_type);
 int get_mac_from_interface(struct sockaddr_ll *senders_iface);
 int send_raw_packet(int *raw_sock, struct sockaddr_ll *so_name, uint8_t *buf, size_t len, uint8_t dst_mac[6]);
-void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_table, struct routing_queue *routing_queue);
+void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_table, struct waiting_queue *routing_queue, struct waiting_queue *arp_queue);
 void write_to_unix_socket(char *msg, uint8_t msg_size, uint8_t mip_dst, int sock_server, uint8_t ttl);
 int check_cache(uint8_t mip);
 void error(int ret, char *msg);
 void send_req_to_router(uint8_t mip_from, uint8_t mip_to, int router_socket);
 struct arp_sdu create_arp_sdu(uint8_t mip, bool req);
-void add_to_routing_queue(struct routing_queue *routing_queue, struct raw_packet packet);
-struct raw_packet pop_routing_queue(struct routing_queue *routing_queue);
-void free_routing_queue(struct routing_queue *routing_queue);
+void add_to_waiting_queue(struct waiting_queue *routing_queue, struct raw_packet packet);
+struct raw_packet pop_waiting_queue(struct waiting_queue *routing_queue);
+void free_waiting_queue(struct waiting_queue *routing_queue);
+void send_arp_queue(struct waiting_queue *arp_queue, uint8_t mip, struct pollfd *fds, struct cache *cache_table);
 #endif
