@@ -193,11 +193,6 @@ void send_update(struct node *routing_list, int sock_server){
         struct update_pair *pair_list = (struct update_pair *)&update_buffer[4];
         uint8_t index = 0;
 
-        //dont send update back to the one that caused it
-        // if (current_node_to_send->mip == mip_caused_update) {
-        //     continue;
-        // }
-
         if (current_node_to_send->distance == 1) {
             
             //building up a message list
