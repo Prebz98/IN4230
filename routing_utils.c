@@ -33,7 +33,6 @@ void socket_setup(char *path, int *sock_server, struct sockaddr_un *serv_addr) {
     if ((*sock_server = socket(AF_UNIX, SOCK_SEQPACKET, 0)) < 0){
         error(*sock_server, "socket setup failed\n");
     }
-    //fcntl(*sock_server, F_SETFL, O_NONBLOCK);
     memset(serv_addr, 0, sizeof(struct sockaddr_un));
     serv_addr->sun_family = AF_UNIX;
     strcpy(serv_addr->sun_path, path);
