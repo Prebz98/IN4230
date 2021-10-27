@@ -44,10 +44,20 @@ int main(int argc, char* argv[]){
                 fds[i].fd = 0;
             }
             // a new application want to connect
-            else if (fds[i].revents & POLLIN && i==1) {
+            else if ((fds[i].revents & POLLIN) && i==1) {
                 fds[num_fds].fd = accept(fds[i].fd, NULL, NULL);
                 fds[num_fds].events = POLLHUP | POLLIN;
                 num_fds++;
+                printf("New application connected\n");
+            }
+            // the mip daemon has sent a message
+            else if (fds[i].revents & POLLIN && i==0) {
+                //TODO handle this
+            }
+
+            // an applicatin has sent a message
+            else if (fds[i].revents & POLLIN) {
+                //TODO handle this
             }
         }
     }

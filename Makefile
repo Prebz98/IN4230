@@ -2,12 +2,19 @@ VALGRIND = valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes
 
 TTL = 3
 TIMEOUT = 1000
+FILE_TO_SEND = noe
 
 MIP_A = 10
 MIP_B = 20
 MIP_C = 30
 MIP_D = 40
 MIP_E = 50
+
+PORT_A = 1
+PORT_B = 2
+PORT_C = 3
+PORT_D = 4
+PORT_E = 5
 
 
 SOCK_A = tmp
@@ -16,11 +23,11 @@ SOCK_C = tmp3
 SOCK_D = tmp4
 SOCK_E = tmp5
 
-MIPTP_SOCK_A = TPA
-MIPTP_SOCK_B = TPB
-MIPTP_SOCK_C = TPC
-MIPTP_SOCK_D = TPD
-MIPTP_SOCK_E = TPE
+MIPTP_SOCK_A = tpA
+MIPTP_SOCK_B = tpB
+MIPTP_SOCK_C = tpC
+MIPTP_SOCK_D = tpD
+MIPTP_SOCK_E = tpE
 
 MIP_DAEMON_A = ./mip_daemon ${SOCK_A} ${MIP_A}
 MIP_DAEMON_B = ./mip_daemon ${SOCK_B} ${MIP_B}
@@ -56,7 +63,9 @@ MIPTP_DAEMON_C = ./miptp_daemon ${TIMEOUT} ${SOCK_C} ${MIPTP_SOCK_C}
 MIPTP_DAEMON_D = ./miptp_daemon ${TIMEOUT} ${SOCK_D} ${MIPTP_SOCK_D}
 MIPTP_DAEMON_E = ./miptp_daemon ${TIMEOUT} ${SOCK_E} ${MIPTP_SOCK_E}
 
-all: ping_client mip_daemon ping_server routing_daemon miptp_daemon
+FILE_TRANSFER_A = ./file_transfer ${FILE_TO_SEND} ${MIPTP_SOCK_A} ${MIP_E} ${PORT_E}
+
+all: ping_client mip_daemon ping_server routing_daemon miptp_daemon file_transfer
 
 mip_daemon: mip_daemon.c mip_daemon_utils.c
 	gcc -g mip_daemon.c mip_daemon_utils.c -o mip_daemon
@@ -72,6 +81,9 @@ routing_daemon: routing_daemon.c routing_utils.c
 
 miptp_daemon: miptp_daemon.c miptp_utils.c
 	gcc -g miptp_daemon.c miptp_utils.c -o miptp_daemon
+
+file_transfer: file_transfer.c file_transfer_utils.c
+	gcc -g file_transfer.c file_transfer_utils.c -o file_transfer
 
 runDaemonA: mip_daemon
 	${MIP_DAEMON_A}
@@ -150,6 +162,21 @@ runMiptpB: miptp_daemon
 
 runMiptpE: miptp_daemon
 	${MIPTP_DAEMON_E}
+
+runFTA: file_transfer
+	${FILE_TRANSFER_A}
+
+runFTB: file_transfer
+	${FILE_TRANSFER_B}
+
+runFTC: file_transfer
+	${FILE_TRANSFER_C}
+
+runFTD: file_transfer
+	${FILE_TRANSFER_D}
+
+runFTE: file_transfer
+	${FILE_TRANSFER_E}
 
 clean: 
 	rm -f *.o ping_client ping_server mip_daemon routing_daemon

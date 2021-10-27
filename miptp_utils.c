@@ -86,7 +86,7 @@ void setup_unix_socket(char *path, struct pollfd *fds) {
     }
 
     // listen to the socket for applications to connect
-    // listen(sock_server, 1);
+    listen(sock_server, 1);
     fds[1].fd = sock_server;
     fds[1].events = POLLHUP | POLLIN;
 }
