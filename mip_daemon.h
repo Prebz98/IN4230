@@ -7,7 +7,7 @@
 #include <sys/poll.h>
 #include <stdbool.h>
 
-#define MAX_EVENTS 4
+#define MAX_EVENTS 5 // this is really the number of fds that can send events
 #define CACHE_TABLE_LEN 4
 #define MAX_IF 4
 #define DST_MAC_ADDR {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}

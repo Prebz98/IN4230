@@ -483,6 +483,12 @@ void identify_unix_client(struct pollfd *fds, int index){
         memcpy(&fds[3], &fds[index], sizeof(struct pollfd));
         memset(&fds[index], 0, sizeof(struct pollfd));
     }
+    // MIPTP
+    else if (identifier == 0x05) {
+        // moving the fd to the right spot
+        memcpy(&fds[4], &fds[index], sizeof(struct pollfd));
+        memset(&fds[index], 0, sizeof(struct pollfd));
+    }
 }
 
 void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t mip_addr){
@@ -552,8 +558,11 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                 uint8_t size = rc;
                 struct mip_hdr *hdr = (struct mip_hdr*)raw_buffer;
 
-                // check if its ping og arp
-                // 0x01 -> MIP-ARP, 0x02 -> Ping
+                // check if its ping, arp, routing or MIPTP
+                // 0x01 -> MIP-ARP
+                // 0x02 -> Ping 
+                // 0x04 -> Routing 
+                // 0x05 -> MIPTP
                 if (hdr->sdu_type == 0x01){
                     struct arp_sdu *sdu = (struct arp_sdu*)&raw_buffer[4];
                     // check if the arp is request or response
@@ -587,6 +596,7 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                     }
                     //its a ping message for me
                 }else if (hdr->sdu_type == 0x02 && hdr->dst == mip_addr) {
+                    printf("I have received a PING message!\n");
                     int index = sizeof(struct mip_hdr);
                     char *translation = (char*)raw_buffer; 
                     uint8_t total_size = hdr->sdu_len*4;
@@ -599,9 +609,25 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                     if (debug_mode){
                         printf("\nSent message to client with unix socket\nMessage: %s\n", &translation[index]);
                     }
-                    printf("I have received a PING message!\n");
-                } //its not for me, I have to pass it on
-                else if (hdr->sdu_type == 0x02 && hdr->dst != mip_addr) {
+                } 
+                //its a MIPTP message for me
+                else if (hdr->sdu_type == 0x05 && hdr->dst == mip_addr) {
+                    printf("I have received a MIPTP message!\n");
+                    int index = sizeof(struct mip_hdr);
+                    char *translation = (char*)raw_buffer; 
+                    uint8_t total_size = hdr->sdu_len*4;
+                    struct unix_packet up;
+                    memset(&up, 0, sizeof(struct unix_packet));
+                    up.mip = hdr->src;
+                    up.ttl = 0;
+                    memcpy(up.msg, &translation[index], total_size);
+                    write(fds[4].fd, &up, total_size);
+                    if (debug_mode){
+                        printf("\nSent message to MIPTP with unix socket\nMessage: %s\n", &translation[index]);
+                    }
+                }
+                //its not for me, I have to pass it on
+                else if ((hdr->sdu_type == 0x02 || hdr->sdu_type == 0x05) && hdr->dst != mip_addr) {
                     //ttl --
                     if (hdr->ttl == 0){continue;}
                     hdr->ttl--;
@@ -629,7 +655,7 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
             else if (fds[i].revents & POLLIN && (i==3)) {
                 handle_routing_msg(fds, mip_addr, cache_table, routing_queue, arp_queue);
             }
-            // a client has sent a message
+            // an upper client has sent a message
             else if (fds[i].revents & POLLIN){
                 // read from socket 
                 uint8_t mac[6];

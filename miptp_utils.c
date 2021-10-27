@@ -4,8 +4,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/poll.h>
 #include <sys/un.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
 void error(int ret, char *msg) {
     //program error
@@ -15,11 +17,20 @@ void error(int ret, char *msg) {
     }
 }
 
-void connect_to_mip_daemon(char* path_to_mip, int *mip_fd){
-    struct sockaddr_un serv_addr; 
+int connect_to_mip_daemon(char* path_to_mip, struct pollfd *fds){
+    /*
+    * connects to the mip daemon
 
-    if ((*mip_fd = socket(AF_UNIX, SOCK_SEQPACKET, 0)) < 0){
-        error(*mip_fd, "socket setup failed\n");
+    * path_to_mip: path to the unix socket to mip_daemon
+    * fds: list to save the fd
+
+    * returns: (int) the fd
+    */
+    struct sockaddr_un serv_addr;
+    int mip_fd;
+
+    if ((mip_fd = socket(AF_UNIX, SOCK_SEQPACKET, 0)) < 0){
+        error(mip_fd, "socket setup failed\n");
     }
     memset(&serv_addr, 0, sizeof(struct sockaddr_un));
     serv_addr.sun_family = AF_UNIX;
@@ -27,9 +38,57 @@ void connect_to_mip_daemon(char* path_to_mip, int *mip_fd){
     if ((strlen(path_to_mip)) < strlen(serv_addr.sun_path)){
         error(-1, "Path is too long");
     }
-    if (0 != (connect(*mip_fd, (struct sockaddr *)&serv_addr, sizeof(struct sockaddr_un)))){
+    if (0 != (connect(mip_fd, (struct sockaddr *)&serv_addr, sizeof(struct sockaddr_un)))){
         error(-1, "Failed to connect to server");
     }
+
+    fds[0].fd = mip_fd;
+    fds[0].events = POLLHUP | POLLIN;
+    return mip_fd;
+}
+
+void write_identifying_msg(int mip_fd){
+    /*
+    * write identifying message
+
+    * mip_fd: fd to mip_daemon
+    */
+    char buffer[BUFSIZE];
+    memset(buffer, 0, BUFSIZE);
+    uint8_t sdu_type = 0x05; //transport sdu type
+    memset(buffer, sdu_type, 1);
+    write(mip_fd, buffer, 1);
+    printf("Identify myself for daemon.\n");
+}
+
+void setup_unix_socket(char *path, struct pollfd *fds) {
+    /* 
+    * setting up unix socket fro applications to connect
+    * path: path to unix socket fd
+    * fds: all fds
+    */
+
+    int sock_server;
+    struct sockaddr_un serv_addr;
+    if ((sock_server = socket(AF_UNIX, SOCK_SEQPACKET, 0)) < 0) {
+        error(sock_server, "socket");
+    }
+    serv_addr.sun_family = AF_UNIX;
+    strcpy(serv_addr.sun_path, path);
+    if ((strlen(path) < strlen(serv_addr.sun_path))){
+        error(-1, "Path is too long\n");
+    }
+    unlink(serv_addr.sun_path);
+
+    //bind the socket
+    if (bind(sock_server, (struct sockaddr *)&serv_addr, sizeof(struct sockaddr_un)) < 0) {
+        error(-1, "bind");
+    }
+
+    // listen to the socket for applications to connect
+    // listen(sock_server, 1);
+    fds[1].fd = sock_server;
+    fds[1].events = POLLHUP | POLLIN;
 }
 
 

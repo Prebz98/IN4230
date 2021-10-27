@@ -1,6 +1,7 @@
 VALGRIND = valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes
 
 TTL = 3
+TIMEOUT = 1000
 
 MIP_A = 10
 MIP_B = 20
@@ -14,6 +15,12 @@ SOCK_B = tmp2
 SOCK_C = tmp3
 SOCK_D = tmp4
 SOCK_E = tmp5
+
+MIPTP_SOCK_A = TPA
+MIPTP_SOCK_B = TPB
+MIPTP_SOCK_C = TPC
+MIPTP_SOCK_D = TPD
+MIPTP_SOCK_E = TPE
 
 MIP_DAEMON_A = ./mip_daemon ${SOCK_A} ${MIP_A}
 MIP_DAEMON_B = ./mip_daemon ${SOCK_B} ${MIP_B}
@@ -43,7 +50,13 @@ ROUTING_DAEMON_C = ./routing_daemon ${SOCK_C}
 ROUTING_DAEMON_D = ./routing_daemon ${SOCK_D}
 ROUTING_DAEMON_E = ./routing_daemon ${SOCK_E}
 
-all: ping_client mip_daemon ping_server routing_daemon
+MIPTP_DAEMON_A = ./miptp_daemon ${TIMEOUT} ${SOCK_A} ${MIPTP_SOCK_A}
+MIPTP_DAEMON_B = ./miptp_daemon ${TIMEOUT} ${SOCK_B} ${MIPTP_SOCK_B}
+MIPTP_DAEMON_C = ./miptp_daemon ${TIMEOUT} ${SOCK_C} ${MIPTP_SOCK_C}
+MIPTP_DAEMON_D = ./miptp_daemon ${TIMEOUT} ${SOCK_D} ${MIPTP_SOCK_D}
+MIPTP_DAEMON_E = ./miptp_daemon ${TIMEOUT} ${SOCK_E} ${MIPTP_SOCK_E}
+
+all: ping_client mip_daemon ping_server routing_daemon miptp_daemon
 
 mip_daemon: mip_daemon.c mip_daemon_utils.c
 	gcc -g mip_daemon.c mip_daemon_utils.c -o mip_daemon
@@ -56,6 +69,9 @@ ping_server: ping_server.c
 
 routing_daemon: routing_daemon.c routing_utils.c
 	gcc -g routing_daemon.c routing_utils.c -o routing_daemon
+
+miptp_daemon: miptp_daemon.c miptp_utils.c
+	gcc -g miptp_daemon.c miptp_utils.c -o miptp_daemon
 
 runDaemonA: mip_daemon
 	${MIP_DAEMON_A}
@@ -125,6 +141,15 @@ runRouterD: routing_daemon
 
 runRouterE: routing_daemon
 	${ROUTING_DAEMON_E}
+
+runMiptpA: miptp_daemon
+	${MIPTP_DAEMON_A}
+
+runMiptpB: miptp_daemon
+	${MIPTP_DAEMON_B}
+
+runMiptpE: miptp_daemon
+	${MIPTP_DAEMON_E}
 
 clean: 
 	rm -f *.o ping_client ping_server mip_daemon routing_daemon
