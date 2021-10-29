@@ -1,4 +1,5 @@
 #include "general.h"
+#include <string.h>
 #include <stdint.h>
 #include "file_transfer.h"
 #include <stdio.h>
@@ -28,9 +29,19 @@ int main(int argc, char* argv[]){
         }
         my_port = rand();
         write_identifying_msg(miptp_fd, my_port);
-        read(miptp_fd, buffer, 1);
+        read(miptp_fd, buffer, 2);
         approved = buffer[0];
         i++;
     }
+    my_port = buffer[1];
     printf("My portnumber is %d\n", my_port);
+
+    //temp
+    memset(buffer, 0, BUFSIZE);
+    struct miptp_pdu *packet = (struct miptp_pdu*)buffer;
+    packet->mip = 20;
+    packet->port = 2;
+    strcpy(packet->sdu, "HEISANN fra A");
+    int size = 2+strlen("HEISANN fra A");
+    write(miptp_fd, buffer, size);
 }

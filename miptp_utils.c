@@ -1,6 +1,7 @@
 #include "general.h"
 #include "miptp_daemon.h"
 #include <bits/getopt_core.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -59,6 +60,64 @@ void write_identifying_msg(int mip_fd){
     memset(buffer, sdu_type, 1);
     write(mip_fd, buffer, 1);
     printf("Identify myself for daemon.\n");
+}
+
+void forward_to_mip(int mip_daemon, int application){
+    /*
+    * reads a message from the application and forwards it to mip daemon
+
+    * mip_daemon: mip daemon fd
+    * application: application fd
+    */
+    
+    char buffer_up[BUFSIZE];
+    char buffer_down[BUFSIZE];
+    int rc = read(application, buffer_up, BUFSIZE);
+    uint8_t dst_mip = buffer_up[0];
+    memset(buffer_down, 0, BUFSIZE);
+    struct unix_packet *to_mip = (struct unix_packet*)buffer_down;
+    to_mip->mip = dst_mip;
+    to_mip->ttl = 0; //default 
+
+    //32 bit align
+    uint8_t size = 2 + rc;
+    uint8_t rest = size % 4;
+    size += rest ? 4-rest : 0;
+
+    memcpy(to_mip, buffer_up, size); 
+    write(mip_daemon, buffer_down, size);
+}
+
+void send_port_response(int fd, uint8_t port, int approved){
+    /*
+    * sends a response that the portnumber was accepted or denied
+
+    * fd: fd to send to
+    * port: portnumber that was approved
+    * approved: 1 if approved, 0 if denied
+    */
+    uint8_t buffer[BUFSIZE];
+    memcpy(buffer, &approved, 1);
+    memcpy(&buffer[1], &port, 1);
+
+    write(fd, buffer, 2);
+}
+
+int available_port(uint8_t *port_numbers, uint8_t port){
+    /*
+    * checks if a port is available
+
+    * port_numbers: all port numbers in use
+    * port: port number to check
+
+    * returns (int) 1 if available, 0 if not
+    */
+    for (int i=0; i<MAX_NODES; i++){
+        if (port_numbers[i] == port){
+            return 0;
+        }
+    }
+    return 1;
 }
 
 void setup_unix_socket(char *path, struct pollfd *fds) {

@@ -13,4 +13,8 @@ The routing table is stored as a linked list that contains the mip-target, the d
 
 
 ### ARP cache
-Since I implemented the arp-cache to store all addresses that it receives from the raw socket, it now stores addresses that are not neighbors. I choose to let this stay the way it is since this does not affect the routing process.  
+Since I implemented the arp-cache to store all addresses that it receives from the raw socket, it now stores addresses that are not neighbors. I choose to let this stay the way it is since this does not affect the routing process. 
+-----------------------------------------
+
+### Assumptions
+

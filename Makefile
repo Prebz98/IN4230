@@ -63,7 +63,7 @@ MIPTP_DAEMON_C = ./miptp_daemon ${TIMEOUT} ${SOCK_C} ${MIPTP_SOCK_C}
 MIPTP_DAEMON_D = ./miptp_daemon ${TIMEOUT} ${SOCK_D} ${MIPTP_SOCK_D}
 MIPTP_DAEMON_E = ./miptp_daemon ${TIMEOUT} ${SOCK_E} ${MIPTP_SOCK_E}
 
-FILE_TRANSFER_A = ./file_transfer ${FILE_TO_SEND} ${MIPTP_SOCK_A} ${MIP_E} ${PORT_E}
+FILE_TRANSFER_A = ./file_transfer ${FILE_TO_SEND} ${MIPTP_SOCK_A} ${MIP_B} ${PORT_B}
 
 all: ping_client mip_daemon ping_server routing_daemon miptp_daemon file_transfer
 

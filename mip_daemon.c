@@ -514,11 +514,12 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
     struct timeval start, now;
     gettimeofday(&start, NULL);
 
-    //if termination is false, then the program will not stop
-    //if termination is true, the program stops after polling for 10 seconds with inactivity
+    //the program stops after polling for timeout_msecs of inactivity
+    // or the program has been running for more than 60 seconds
     while ((res = poll(fds, MAX_EVENTS+NUMBER_OF_UNIX_CONNECTIONS, timeout_msecs)) > 0){
         gettimeofday(&now, NULL);
         if ((now.tv_sec-start.tv_sec) > 60){
+            printf("Terminated. Has run over 60 seconds\n");
             return;
         }
         if (debug_mode){
@@ -638,7 +639,7 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                         add_to_waiting_queue(routing_queue, packet_to_save);
 
                         send_req_to_router(mip_addr, hdr->dst, fds[3].fd);
-                        printf("PING message passed along\n");
+                        printf("Message passed along\n");
                     }
                 }
                 // its a routing message
@@ -683,6 +684,11 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                 }
                 // saving waiting message
                 struct raw_packet packet_to_save;
+
+                // default ttl
+                if (up->ttl == 0){
+                    up->ttl = TTL;
+                }
                 
                 //creating header
                 struct mip_hdr hdr_to_save;
