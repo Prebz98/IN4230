@@ -407,7 +407,7 @@ struct mip_hdr create_mip_hdr(uint8_t dst, uint8_t src, uint8_t ttl, uint16_t sd
     * src: mip source
     * ttl: time to live
     * sdu_len: length of sdu
-    * sdu_type: type of sdu, (ping, ARP)
+    * sdu_type: type of sdu, (ping, ARP, MIPTP)
     */
     struct mip_hdr hdr;
     hdr.dst = dst;
@@ -689,20 +689,28 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                 if (up->ttl == 0){
                     up->ttl = TTL;
                 }
+
+                uint8_t protocol;
+                switch (i) {
+                    case 2:
+                        protocol = 0x02; //ping
+                    case 4:
+                        protocol = 0x05; //miptp
+                }
                 
                 //creating header
                 struct mip_hdr hdr_to_save;
                 hdr_to_save.dst = mip_dst;
                 hdr_to_save.src = mip_addr;
                 hdr_to_save.ttl = up->ttl;
-                hdr_to_save.sdu_type = 0x02;
+                hdr_to_save.sdu_type = protocol;
                 hdr_to_save.sdu_len = size/4;
                 packet_to_save.hdr = hdr_to_save;
 
                 //creating message
                 memcpy(packet_to_save.sdu, up->msg, size);
                 add_to_waiting_queue(routing_queue, packet_to_save);
-                printf("Will send a PING message!\n");
+                printf("Will send a message!\n");
             }
         }
     }

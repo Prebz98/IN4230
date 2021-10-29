@@ -84,8 +84,27 @@ void forward_to_mip(int mip_daemon, int application){
     uint8_t rest = size % 4;
     size += rest ? 4-rest : 0;
 
-    memcpy(to_mip, buffer_up, size); 
+    memcpy(to_mip->msg, buffer_up, rc); 
     write(mip_daemon, buffer_down, size);
+}
+
+int index_of_port(uint8_t port, uint8_t *port_numbers, int number_of_ports){
+    /*
+    * returns the index of the portnumber in portnumbers
+
+    * port: the port to look for
+    * port_numbers: all active port numbers
+    * number_of_ports: the length of port_numbers
+
+    * returns (int) the index of the port, -1 if not found
+    */
+
+    for (int i=0; i<number_of_ports; i++){
+        if (port_numbers[i] == port){
+            return i;
+        }
+    }
+    return -1;
 }
 
 void send_port_response(int fd, uint8_t port, int approved){

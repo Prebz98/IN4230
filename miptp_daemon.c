@@ -15,10 +15,11 @@ int main(int argc, char* argv[]){
     char path_to_higher[BUFSIZE]; //path to higher layer unix
     int done = 0;
     int num_fds = 0;
-    char buffer_up[BUFSIZE];
-    char buffer_down[BUFSIZE];
+    // char buffer_up[BUFSIZE];
+    // char buffer_down[BUFSIZE];
     
     uint8_t port_numbers[MAX_NODES];
+    int number_of_ports = 0;
     memset(port_numbers, 0, MAX_NODES);
     struct pollfd fds[MAX_NODES]; 
     //fds, 
@@ -54,9 +55,16 @@ int main(int argc, char* argv[]){
         }
 
         // the mip daemon has sent a message
+        // forward it to the right app
         else if (mip_daemon->revents & POLLIN) {
-            //TODO handle this
-            printf("MIP-daemon sent message - TODO\n");
+            char buffer[BUFSIZE];
+            int rc = read(mip_daemon->fd, buffer, BUFSIZE);
+            struct unix_packet *packet_received = (struct unix_packet*)buffer; 
+            struct miptp_pdu *tp_pdu = (struct miptp_pdu*)packet_received->msg;
+            uint8_t port = tp_pdu->port;
+            int index_of_app = index_of_port(port, port_numbers, number_of_ports);
+            struct pollfd app = fds[index_of_app];
+            write(app.fd, tp_pdu, rc-2); // 2 bytes removed from unix_packet to miptp_pdu
         }
 
         else {
@@ -74,9 +82,11 @@ int main(int argc, char* argv[]){
                     printf("Application sent message\n");
                     //check if it has a port-number
                     if (port_numbers[i] == 0){
+                        char buffer_up[1];
                         read(fds[i].fd, buffer_up, 1);
                         if (available_port(port_numbers, buffer_up[0])){
                             port_numbers[i] = buffer_up[0];
+                            number_of_ports++;
                             send_port_response(fds[i].fd, port_numbers[i], APPROVED);
                         }else {
                             send_port_response(fds[i].fd, port_numbers[i], DENIED);
