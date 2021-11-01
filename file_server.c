@@ -55,8 +55,10 @@ int main(int argc, char* argv[]){
     char buffer[BUFSIZE];
     int done = 0;
     argparser(argc, argv, &port, path_miptp, path_directory);
-
+    struct link links[MAX_NODES];
+    int link_len = 0;
     int miptp_fd = connect_to_miptp(path_miptp);
+    
     write_identifying_msg(miptp_fd, port);
     read(miptp_fd, buffer, 2);
     //if port is approved
@@ -65,14 +67,18 @@ int main(int argc, char* argv[]){
         printf("Port was not avaliable\n");
         exit(EXIT_SUCCESS);
     }
+    printf("Port number accepted\n");
 
     while (!done) {
         int rc = read_from_socket(miptp_fd, &done, buffer);
         struct miptp_pdu *packet = (struct miptp_pdu*)buffer;
-        if (check_connection(packet->port, packet->mip)){
-            create_new_connection(packet->port, packet->mip);
+        if (!check_link(packet->port, packet->mip, links, link_len)){
+            create_new_link(packet->port, packet->mip, links, &link_len);
         }
-
-        FILE file = get_file_to(packet->port, packet->mip);
+        FILE *file = get_file(packet->port, packet->mip, links, link_len);
+        fprintf(file, "incoming_%d_%d\n", packet->mip, packet->port);
+        fprintf(file, "%s", packet->sdu);
+        fclose(file);
     }
+    //close files and sockets TODO
 }

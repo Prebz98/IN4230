@@ -28,6 +28,7 @@ int main(int argc, char* argv[]){
     //  rest is for applications
     struct pollfd *mip_daemon = &fds[0];
     struct pollfd *connection_socket = &fds[1];
+    struct pollfd *applications = &fds[2];
 
 
     argparser(argc, argv, &timeout_msecs, path_to_mip, path_to_higher);
@@ -62,38 +63,40 @@ int main(int argc, char* argv[]){
             struct unix_packet *packet_received = (struct unix_packet*)buffer; 
             struct miptp_pdu *tp_pdu = (struct miptp_pdu*)packet_received->msg;
             uint8_t port = tp_pdu->port;
+
             int index_of_app = index_of_port(port, port_numbers, number_of_ports);
-            struct pollfd app = fds[index_of_app];
-            write(app.fd, tp_pdu, rc-2); // 2 bytes removed from unix_packet to miptp_pdu
+            int app_fd = applications[index_of_app].fd;
+
+            write(app_fd, tp_pdu, rc-2); // 2 bytes removed from unix_packet to miptp_pdu
         }
 
         else {
             // goes through all applications, skips mip daemon and connection socket
-            for (int i=2; i<num_fds; i++){
+            for (int i=0; i<num_fds-2; i++){
                 
                 //an application has disconnected
-                if (fds[i].revents & POLLHUP) {
-                    close(fds[i].fd);
-                    fds[i].fd = 0;
+                if (applications[i].revents & POLLHUP) {
+                    close(applications[i].fd);
+                    applications[i].fd = 0;
                 }
 
                 // an applicatin has sent a message
-                else if (fds[i].revents & POLLIN) {
+                else if (applications[i].revents & POLLIN) {
                     printf("Application sent message\n");
                     //check if it has a port-number
                     if (port_numbers[i] == 0){
                         char buffer_up[1];
-                        read(fds[i].fd, buffer_up, 1);
-                        if (available_port(port_numbers, buffer_up[0])){
+                        read(applications[i].fd, buffer_up, 1);
+                        if (available_port(port_numbers, buffer_up[0])){ //blkir feil plass her
                             port_numbers[i] = buffer_up[0];
                             number_of_ports++;
-                            send_port_response(fds[i].fd, port_numbers[i], APPROVED);
+                            send_port_response(applications[i].fd, port_numbers[i], APPROVED);
                         }else {
-                            send_port_response(fds[i].fd, port_numbers[i], DENIED);
+                            send_port_response(applications[i].fd, port_numbers[i], DENIED);
                         }
                     }
                     else { //portnumber is known, this is a message to pass on
-                        forward_to_mip(mip_daemon->fd, fds[i].fd);   
+                        forward_to_mip(mip_daemon->fd, applications[i].fd);   
                     }
                 }
             }

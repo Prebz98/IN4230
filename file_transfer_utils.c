@@ -9,6 +9,68 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+FILE* get_file(uint8_t port, uint8_t mip, struct link *links, int link_len){
+    /*
+    * returns the file to a port and mip
+
+    * port: port of the link
+    * mip: mip of link
+    * links: active links
+    * link_len: length of links
+
+    *returns (FILE*) pointer to the file
+    */
+
+     for (int i=0; i<link_len; i++){
+        if (links[i].port == port && links[i].mip == mip){
+            return links[i].file;
+        }
+    }
+    return 0;
+}
+
+
+void create_new_link(uint8_t port, uint8_t mip, struct link *links, int *link_len){
+    /*
+    * creates a new link 
+    
+    * port: port of the link
+    * mip: mip of link
+    * links: active links
+    * link_len: length of links
+    */
+    struct link new;
+    new.mip = mip;
+    new.port = port;
+    char path[BUFSIZE];
+    sprintf(path, "received/%d", *link_len);
+    FILE *fp;
+    fp = fopen(path, "w");
+    new.file = fp;
+
+    links[*link_len] = new;
+    *link_len = *link_len+1;
+}
+
+int check_link(uint8_t port, uint8_t mip, struct link *links, int link_len){
+    /*
+    * checks if there is a link with given port and mip
+
+    * port: port of the link
+    * mip: mip of link
+    * links: active links
+    * link_len: length of links
+
+    * returns: (int) 1 if it exists, 0 if not
+    */
+    for (int i=0; i<link_len; i++){
+        if (links[i].port == port && links[i].mip == mip){
+            return 1;
+        }
+    }
+    return 0;
+}
+
 int read_from_socket(int miptp_fd, int *done, char *buffer){
     /*
     * Listens to the socket until it receives a message
