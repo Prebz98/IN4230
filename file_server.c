@@ -7,14 +7,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
-
-void error(int ret, char *msg) {
-    //program error
-    if (ret == -1) {
-        perror(msg);
-        exit(EXIT_FAILURE);
-    }
-}
+#include "file_transfer.h"
 
 
 int argparser(int argc, char **argv, uint8_t *port, char *path_to_miptp, char *directory){
@@ -56,5 +49,30 @@ int argparser(int argc, char **argv, uint8_t *port, char *path_to_miptp, char *d
 }
 
 int main(int argc, char* argv[]){
-    
+    uint8_t port;
+    char path_miptp[BUFSIZE];
+    char path_directory[BUFSIZE];
+    char buffer[BUFSIZE];
+    int done = 0;
+    argparser(argc, argv, &port, path_miptp, path_directory);
+
+    int miptp_fd = connect_to_miptp(path_miptp);
+    write_identifying_msg(miptp_fd, port);
+    read(miptp_fd, buffer, 2);
+    //if port is approved
+    if (!buffer[0]){
+        close(miptp_fd);
+        printf("Port was not avaliable\n");
+        exit(EXIT_SUCCESS);
+    }
+
+    while (!done) {
+        int rc = read_from_socket(miptp_fd, &done, buffer);
+        struct miptp_pdu *packet = (struct miptp_pdu*)buffer;
+        if (check_connection(packet->port, packet->mip)){
+            create_new_connection(packet->port, packet->mip);
+        }
+
+        FILE file = get_file_to(packet->port, packet->mip);
+    }
 }

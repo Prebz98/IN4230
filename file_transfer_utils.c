@@ -9,6 +9,25 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+int read_from_socket(int miptp_fd, int *done, char *buffer){
+    /*
+    * Listens to the socket until it receives a message
+    * if something goes wrong or the server disconnects, return -1
+
+    * miptp_fd: miptp fd
+    * done: changes this to 1 if server disconnects
+    * buffer: the buffer to store incoming packet
+
+    * returns: (int) number of bytes received
+    */
+    int rc;
+    if ((rc = read(miptp_fd, buffer, sizeof(buffer))) == -1 || rc == 0){
+        *done = 1;
+        return -1;
+    }
+    return rc;
+}
+
 void write_identifying_msg(int miptp_fd, uint8_t my_port){
     /*
     * write identifying message
@@ -55,45 +74,4 @@ int connect_to_miptp(char* path_to_miptp){
     }
 
     return mip_fd;
-}
-
-int argparser(int argc, char **argv, char *path_to_file, char *path_to_miptp, uint8_t *dst_mip, uint8_t *dst_port){
-    /*
-    * parses all arguments
-
-    * path_to_file: path to file to send
-    * path_to_miptp: path to miptp socket
-    * dst_mip: destination mip address
-    * dst_port: destination port number
-    */
-    int index;
-    int c;
-
-    opterr = 0;
-
-    while ((c = getopt (argc, argv, "h")) != -1)
-        switch (c)
-        {
-        case 'h':
-            printf("How to run\n./file_transfer [-h] <file> <socket lower> <mip> <port>\nAlternative: Use the makefile commands.\n");
-            printf("Optional args:\n\
-            -h Help\n\
-            Non-optional args:\n\
-            File: path to the file to send\n\
-            Socket lower: filename for unix socket to miptp\n\
-            MIP: MIP address to send to\n\
-            Port: Port number to send to\n");
-            printf("Program description:\nThe program will send a file to a file receiver. It sends 1400 byte chunks to the miptp_daemon that will ensure that the file reaches its destination in order. After sending the file, the program ends.\n");
-            exit(EXIT_SUCCESS);
-            break;
-        default:
-            abort ();
-        }
-
-    index = optind;
-    strcpy(path_to_file, argv[index]);
-    strcpy(path_to_miptp, argv[index+1]);
-    *dst_mip = atoi(argv[index+2]);
-    *dst_port = atoi(argv[index+3]);
-    return 0;
 }
