@@ -57,6 +57,8 @@ void create_new_link(uint8_t port, uint8_t mip, struct link *links, int *link_le
     new.port = port;
     char path[BUFSIZE];
     sprintf(path, "received/incoming_%d_%d", mip, port);
+
+
     FILE *fp;
     fp = fopen(path, "w");
     new.file = fp;

@@ -54,7 +54,7 @@ int main(int argc, char* argv[]){
     uint8_t dst_mip;
     uint8_t dst_port;
     uint8_t my_port;
-    uint8_t buffer[BUFSIZE];
+    char buffer[BUFSIZE];
     
     argparser(argc, argv, path_to_file, path_to_miptp, &dst_mip, &dst_port);
 
@@ -77,12 +77,16 @@ int main(int argc, char* argv[]){
     my_port = buffer[1];
     printf("My portnumber is %d\n", my_port);
 
-    //temp
-    memset(buffer, 0, BUFSIZE);
     struct app_pdu *packet = (struct app_pdu*)buffer;
-    packet->mip = 20;
-    packet->port = 2;
-    strcpy(packet->sdu, "HEISANN fra A");
-    int size = 2+strlen("HEISANN fra A");
-    write(miptp_fd, buffer, size);
+    packet->mip = dst_mip;
+    packet->port = dst_port;
+
+    FILE *fp;
+    fp = fopen(path_to_file, "r");
+    memset(buffer+2, 0, BUFSIZE-2);
+    while (fgets(buffer+2, 1400, fp) != NULL) {
+        int size = strlen(buffer+2)+2; //2 bytes in header
+        write(miptp_fd, buffer, size);
+        memset(buffer+2, 0, BUFSIZE-2);
+    } 
 }
