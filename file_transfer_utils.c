@@ -29,6 +29,19 @@ FILE* get_file(uint8_t port, uint8_t mip, struct link *links, int link_len){
     return 0;
 }
 
+void close_files(struct link *links, int link_len){
+    /*
+    * closes all file connections
+
+    * links: a list of links that contains files
+    */ 
+    for (int i=0; i<link_len; i++) {
+        if (links[i].mip != 0){
+            fclose(links[i].file);
+        }
+    }
+}
+
 
 void create_new_link(uint8_t port, uint8_t mip, struct link *links, int *link_len){
     /*
@@ -43,7 +56,7 @@ void create_new_link(uint8_t port, uint8_t mip, struct link *links, int *link_le
     new.mip = mip;
     new.port = port;
     char path[BUFSIZE];
-    sprintf(path, "received/%d", *link_len);
+    sprintf(path, "received/incoming_%d_%d", mip, port);
     FILE *fp;
     fp = fopen(path, "w");
     new.file = fp;
@@ -71,7 +84,7 @@ int check_link(uint8_t port, uint8_t mip, struct link *links, int link_len){
     return 0;
 }
 
-int read_from_socket(int miptp_fd, int *done, char *buffer){
+int read_from_socket(int miptp_fd, char *buffer){
     /*
     * Listens to the socket until it receives a message
     * if something goes wrong or the server disconnects, return -1
@@ -83,8 +96,7 @@ int read_from_socket(int miptp_fd, int *done, char *buffer){
     * returns: (int) number of bytes received
     */
     int rc;
-    if ((rc = read(miptp_fd, buffer, sizeof(buffer))) == -1 || rc == 0){
-        *done = 1;
+    if ((rc = read(miptp_fd, buffer, BUFSIZE)) == -1 || rc == 0){
         return -1;
     }
     return rc;

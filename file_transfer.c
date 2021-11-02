@@ -79,7 +79,7 @@ int main(int argc, char* argv[]){
 
     //temp
     memset(buffer, 0, BUFSIZE);
-    struct miptp_pdu *packet = (struct miptp_pdu*)buffer;
+    struct app_pdu *packet = (struct app_pdu*)buffer;
     packet->mip = 20;
     packet->port = 2;
     strcpy(packet->sdu, "HEISANN fra A");

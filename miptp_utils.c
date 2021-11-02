@@ -62,7 +62,7 @@ void write_identifying_msg(int mip_fd){
     printf("Identify myself for daemon.\n");
 }
 
-void forward_to_mip(int mip_daemon, int application){
+void forward_to_mip(int mip_daemon, int application, uint8_t app_port){
     /*
     * reads a message from the application and forwards it to mip daemon
 
@@ -74,17 +74,26 @@ void forward_to_mip(int mip_daemon, int application){
     char buffer_down[BUFSIZE];
     int rc = read(application, buffer_up, BUFSIZE);
     uint8_t dst_mip = buffer_up[0];
+    uint8_t dst_port = buffer_up[1];
     memset(buffer_down, 0, BUFSIZE);
-    struct unix_packet *to_mip = (struct unix_packet*)buffer_down;
-    to_mip->mip = dst_mip;
-    to_mip->ttl = 0; //default 
 
     //32 bit align
-    uint8_t size = 2 + rc;
+    uint8_t size = 6 + rc; //6 bytes of header, 4miptp + 2mip
     uint8_t rest = size % 4;
     size += rest ? 4-rest : 0;
 
-    memcpy(to_mip->msg, buffer_up, rc); 
+    struct unix_packet *packet = (struct unix_packet*)buffer_down;
+    struct miptp_pdu *miptp_pdu = (struct miptp_pdu*)packet->msg;
+
+    miptp_pdu->dst_port = buffer_up[1];
+    miptp_pdu->seq = 1; //TODO
+    miptp_pdu->src_port = app_port;
+    memcpy(miptp_pdu->sdu, buffer_up, rc);
+
+    packet->mip = dst_mip;
+    packet->ttl = 0; //default 
+    memcpy(packet->msg, miptp_pdu, size); 
+
     write(mip_daemon, buffer_down, size);
 }
 

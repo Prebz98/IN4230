@@ -70,15 +70,18 @@ int main(int argc, char* argv[]){
     printf("Port number accepted\n");
 
     while (!done) {
-        int rc = read_from_socket(miptp_fd, &done, buffer);
-        struct miptp_pdu *packet = (struct miptp_pdu*)buffer;
+        int rc = read_from_socket(miptp_fd, buffer);
+        if (rc == -1){
+            done = 1;
+            continue;
+        }
+
+        struct app_pdu *packet = (struct app_pdu*)buffer;
         if (!check_link(packet->port, packet->mip, links, link_len)){
             create_new_link(packet->port, packet->mip, links, &link_len);
         }
         FILE *file = get_file(packet->port, packet->mip, links, link_len);
-        fprintf(file, "incoming_%d_%d\n", packet->mip, packet->port);
         fprintf(file, "%s", packet->sdu);
-        fclose(file);
     }
-    //close files and sockets TODO
+    close_files(links, link_len);
 }
