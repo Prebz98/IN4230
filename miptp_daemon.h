@@ -34,8 +34,8 @@ int argparser(int argc, char **argv,int *timeout_msecs, char* mip_daemon, char* 
 int connect_to_mip_daemon(char* path_to_mip, struct pollfd *fds);
 void write_identifying_msg(int mip_fd);
 void setup_unix_socket(char *path, struct pollfd *fds);
-int available_port(uint8_t *port_numbers, uint8_t port);
+int available_port(struct host *hosts, int num_hosts, uint8_t port);
 void send_port_response(int fd, uint8_t port, int approved);
-void forward_to_mip(int mip_daemon, int application, uint8_t app_port);
-int index_of_port(uint8_t port, uint8_t *port_numbers, int number_of_ports);
-void forward_to_app(struct pollfd *mip_daemon, uint8_t *port_numbers, int number_of_ports, struct pollfd *applications);
+void forward_to_mip(int mip_daemon, int application, struct host *host);
+int index_of_port(uint8_t port, struct host *hosts, int num_hosts);
+void forward_to_app(struct pollfd *mip_daemon, struct host *hosts, int num_hosts, struct pollfd *applications);

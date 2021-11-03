@@ -19,15 +19,10 @@ int main(int argc, char* argv[]){
     int mip_fd; //mip daemon fd
     char path_to_higher[BUFSIZE]; //path to higher layer unix
     int done = 0;
-    int num_fds = 0;
     
-    struct host *hosts = malloc(sizeof(struct host)); // list of hosts, starts with empty
+    struct host hosts[MAX_LINKS]; //list with application hosts
+    int num_hosts = 0;
 
-    uint8_t port_numbers[MAX_NODES];//port_number[i] is the port number to fds[i]
-    int number_of_ports = 0;
-    memset(port_numbers, 0, MAX_NODES);
-    int seq[BUFSIZE]; //seq[i] is the seq to fds[i]
-    memset(seq, 0, BUFSIZE);
     struct pollfd fds[MAX_NODES]; 
     //fds, 
     //  first space for mip_daemon
@@ -35,18 +30,16 @@ int main(int argc, char* argv[]){
     //  rest is for applications
     struct pollfd *mip_daemon = &fds[0];
     struct pollfd *connection_socket = &fds[1];
-    struct pollfd *applications = &fds[2];
+    struct pollfd *app_fds = &fds[2];
 
 
     argparser(argc, argv, &timeout_msecs, path_to_mip, path_to_higher);
     mip_fd = connect_to_mip_daemon(path_to_mip, fds);
-    num_fds++;
     write_identifying_msg(mip_fd);
     setup_unix_socket(path_to_higher, fds);
-    num_fds++;
     
     while (!done) {
-        poll(fds, num_fds, 1000);
+        poll(fds, num_hosts+2, 1000); //+2 for mip_daemon and connection point
 
         //mip daemon disconnected
         if (mip_daemon->revents & POLLHUP){
@@ -56,44 +49,48 @@ int main(int argc, char* argv[]){
 
         // a new application want to connect
         else if ((connection_socket->revents & POLLIN)) {
-            fds[num_fds].fd = accept(connection_socket->fd, NULL, NULL);
-            fds[num_fds].events = POLLHUP | POLLIN;
-            num_fds++;
+            app_fds[num_hosts].fd = accept(connection_socket->fd, NULL, NULL);
+            app_fds[num_hosts].events = POLLHUP | POLLIN;
+
+            struct host new_host;
+            new_host.fd_index = num_hosts;
+            new_host.seq = 0; //todo
+            hosts[num_hosts] = new_host;
+            num_hosts++;
             printf("New application connected\n");
         }
 
         // the mip daemon has sent a message
         // forward it to the right app
         else if (mip_daemon->revents & POLLIN) {
-            forward_to_app(mip_daemon, port_numbers, number_of_ports, applications);
+            forward_to_app(mip_daemon, hosts, num_hosts, app_fds);
         }
 
         else {
             // goes through all applications, skips mip daemon and connection socket
-            for (int i=0; i<num_fds-2; i++){
+            for (int i=0; i<num_hosts; i++){
                 
                 //an application has disconnected
-                if (applications[i].revents & POLLHUP) {
-                    close(applications[i].fd);
-                    applications[i].fd = 0;
+                if (app_fds[i].revents & POLLHUP) {
+                    close(app_fds[i].fd);
+                    app_fds[i].fd = 0;
                 }
 
                 // an applicatin has sent a message
-                else if (applications[i].revents & POLLIN) {
+                else if (app_fds[i].revents & POLLIN) {
                     //check if it has a port-number
-                    if (port_numbers[i] == 0){
+                    if (hosts[i].port == 0){
                         char buffer_up[1];
-                        read(applications[i].fd, buffer_up, 1);
-                        if (available_port(port_numbers, buffer_up[0])){ 
-                            port_numbers[i] = buffer_up[0];
-                            number_of_ports++;
-                            send_port_response(applications[i].fd, port_numbers[i], APPROVED);
+                        read(app_fds[i].fd, buffer_up, 1);
+                        if (available_port(hosts, num_hosts, buffer_up[0])){ 
+                            hosts[i].port = buffer_up[0];
+                            send_port_response(app_fds[i].fd, hosts[i].port, APPROVED);
                         }else {
-                            send_port_response(applications[i].fd, port_numbers[i], DENIED);
+                            send_port_response(app_fds[i].fd, hosts[i].port, DENIED);
                         }
                     }
                     else { //portnumber is known, this is a message to pass on
-                        forward_to_mip(mip_daemon->fd, applications[i].fd, port_numbers[i]);   
+                        forward_to_mip(mip_daemon->fd, app_fds[i].fd, &hosts[i]);   
                     }
                 }
             }

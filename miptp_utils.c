@@ -63,7 +63,7 @@ void write_identifying_msg(int mip_fd){
     printf("Identify myself for daemon.\n");
 }
 
-void forward_to_mip(int mip_daemon, int application, uint8_t app_port){
+void forward_to_mip(int mip_daemon, int application, struct host *host){
     /*
     * reads a message from the application and forwards it to mip daemon
 
@@ -87,8 +87,13 @@ void forward_to_mip(int mip_daemon, int application, uint8_t app_port){
     struct miptp_pdu *miptp_pdu = (struct miptp_pdu*)packet->msg;
 
     miptp_pdu->dst_port = buffer_up[1];
-    miptp_pdu->seq = htons(1); //TODO
-    miptp_pdu->src_port = app_port;
+    miptp_pdu->seq = htons(host->seq);
+    if (host->seq == 1 << 14){
+        host->seq = 0;
+    }else {
+        host->seq = host->seq +1;
+    }
+    miptp_pdu->src_port = host->port;
     memcpy(miptp_pdu->sdu, buffer_up, rc);
 
     packet->mip = dst_mip;
@@ -98,32 +103,32 @@ void forward_to_mip(int mip_daemon, int application, uint8_t app_port){
     rc = write(mip_daemon, buffer_down, size);
 }
 
-int index_of_port(uint8_t port, uint8_t *port_numbers, int number_of_ports){
+int index_of_port(uint8_t port, struct host *hosts, int num_hosts){
     /*
     * returns the index of the portnumber in portnumbers
 
     * port: the port to look for
-    * port_numbers: all active port numbers
-    * number_of_ports: the length of port_numbers
+    * hosts: list of hosts
+    * num_hosts: length of the list
 
     * returns (int) the index of the port, -1 if not found
     */
 
-    for (int i=0; i<number_of_ports; i++){
-        if (port_numbers[i] == port){
+    for (int i=0; i<num_hosts; i++){
+        if (hosts[i].port == port){
             return i;
         }
     }
     return -1;
 }
 
-void forward_to_app(struct pollfd *mip_daemon, uint8_t *port_numbers, int number_of_ports, struct pollfd *applications){
+void forward_to_app(struct pollfd *mip_daemon, struct host *hosts, int num_hosts, struct pollfd *applications){
     /*
     * reads a message from mip daemon and forwards it to the right application
 
     * mip_daemon: pollfd to mipdaemon
-    * port_numbers: list of portnumbers
-    * number_of_ports: number of ports
+    * hosts: list of hosts
+    * num_hosts: length of the list
     * applications: list of application hosts
     */
 
@@ -136,12 +141,27 @@ void forward_to_app(struct pollfd *mip_daemon, uint8_t *port_numbers, int number
     uint8_t src_mip = packet_received->mip;
     uint8_t dst_port = tp_pdu->dst_port;
     uint16_t seq = ntohs(tp_pdu->seq);
+
+    int index_of_app = index_of_port(dst_port, hosts, num_hosts);
+    int app_fd = applications[index_of_app].fd;
+    int *exp_seq = &hosts[index_of_app].seq;
+
+    // not expected seq, ignore
+    if (seq != *exp_seq){
+        return;
+    }
+    if (*exp_seq == 1 << 14) {
+        *exp_seq = 0;    
+    }else {
+        printf("HER\n");
+        *exp_seq = *exp_seq +1;
+    }
+    
+
     struct app_pdu *message_to_send = (struct app_pdu*)tp_pdu->sdu;
     message_to_send->mip = src_mip;
     message_to_send->port = src_port;
 
-    int index_of_app = index_of_port(dst_port, port_numbers, number_of_ports);
-    int app_fd = applications[index_of_app].fd;
 
     write(app_fd, message_to_send, rc-6); // 2 bytes removed from unix_packet to miptp_pdu
     //4 removed from miptp_pdy to app_pdu
@@ -162,17 +182,18 @@ void send_port_response(int fd, uint8_t port, int approved){
     write(fd, buffer, 2);
 }
 
-int available_port(uint8_t *port_numbers, uint8_t port){
+int available_port(struct host *hosts, int num_hosts, uint8_t port){
     /*
     * checks if a port is available
 
-    * port_numbers: all port numbers in use
+    * hosts: list of hosts
+    * num_hosts: length of the list
     * port: port number to check
 
     * returns (int) 1 if available, 0 if not
     */
-    for (int i=0; i<MAX_NODES; i++){
-        if (port_numbers[i] == port){
+    for (int i=0; i<num_hosts; i++){
+        if (hosts[i].port == port){
             return 0;
         }
     }
