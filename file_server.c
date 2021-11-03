@@ -77,11 +77,26 @@ int main(int argc, char* argv[]){
             continue;
         }
         struct app_pdu *packet = (struct app_pdu*)buffer;
-        if (!check_link(packet->port, packet->mip, links, link_len)){
-            create_new_link(packet->port, packet->mip, links, &link_len);
+        //checking if the sender is known
+        int index = check_link(packet->port, packet->mip, links, link_len);
+
+        if (index == -1){ //if not known
+            uint32_t file_size = *(uint32_t*)packet->sdu;
+            printf("%d\n", file_size);
+            create_new_link(packet->port, packet->mip, file_size, links, &link_len);
         }
-        FILE *file = get_file(packet->port, packet->mip, links, link_len);
-        fprintf(file, "%s", packet->sdu);
+        else { //sender is known
+            FILE *file = get_file(packet->port, packet->mip, links, link_len);
+            fprintf(file, "%s", packet->sdu);
+
+            uint32_t packet_len = strlen(packet->sdu);
+            uint32_t *bytes_left = &links[index].file_size;
+            *bytes_left = *bytes_left - packet_len;
+            if (*bytes_left == 0){
+                fclose(file);
+            }
+        }
+        
     }
-    close_files(links, link_len);
+    // close_files(links, link_len);
 }

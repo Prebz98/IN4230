@@ -43,18 +43,20 @@ void close_files(struct link *links, int link_len){
 }
 
 
-void create_new_link(uint8_t port, uint8_t mip, struct link *links, int *link_len){
+void create_new_link(uint8_t port, uint8_t mip, uint32_t file_size, struct link *links, int *link_len){
     /*
     * creates a new link 
     
     * port: port of the link
     * mip: mip of link
+    * file_size: size of file
     * links: active links
     * link_len: length of links
     */
     struct link new;
     new.mip = mip;
     new.port = port;
+    new.file_size = file_size;
     char path[BUFSIZE];
     sprintf(path, "received/incoming_%d_%d", mip, port);
 
@@ -80,10 +82,10 @@ int check_link(uint8_t port, uint8_t mip, struct link *links, int link_len){
     */
     for (int i=0; i<link_len; i++){
         if (links[i].port == port && links[i].mip == mip){
-            return 1;
+            return i;
         }
     }
-    return 0;
+    return -1;
 }
 
 int read_from_socket(int miptp_fd, char *buffer){

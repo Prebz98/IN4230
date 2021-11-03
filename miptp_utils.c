@@ -1,6 +1,7 @@
 #include "general.h"
 #include "miptp_daemon.h"
 #include <bits/getopt_core.h>
+#include <netinet/in.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -86,7 +87,7 @@ void forward_to_mip(int mip_daemon, int application, uint8_t app_port){
     struct miptp_pdu *miptp_pdu = (struct miptp_pdu*)packet->msg;
 
     miptp_pdu->dst_port = buffer_up[1];
-    miptp_pdu->seq = 1; //TODO
+    miptp_pdu->seq = htons(1); //TODO
     miptp_pdu->src_port = app_port;
     memcpy(miptp_pdu->sdu, buffer_up, rc);
 
@@ -134,6 +135,7 @@ void forward_to_app(struct pollfd *mip_daemon, uint8_t *port_numbers, int number
     uint8_t src_port = tp_pdu->src_port;
     uint8_t src_mip = packet_received->mip;
     uint8_t dst_port = tp_pdu->dst_port;
+    uint16_t seq = ntohs(tp_pdu->seq);
     struct app_pdu *message_to_send = (struct app_pdu*)tp_pdu->sdu;
     message_to_send->mip = src_mip;
     message_to_send->port = src_port;

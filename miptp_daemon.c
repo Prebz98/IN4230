@@ -22,9 +22,11 @@ int main(int argc, char* argv[]){
     // char buffer_up[BUFSIZE];
     // char buffer_down[BUFSIZE];
     
-    uint8_t port_numbers[MAX_NODES];
+    uint8_t port_numbers[MAX_NODES];//port_number[i] is the port number to fds[i]
     int number_of_ports = 0;
     memset(port_numbers, 0, MAX_NODES);
+    int seq[BUFSIZE]; //seq[i] is the seq to fds[i]
+    memset(seq, 0, BUFSIZE);
     struct pollfd fds[MAX_NODES]; 
     //fds, 
     //  first space for mip_daemon

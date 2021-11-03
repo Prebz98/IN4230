@@ -84,6 +84,17 @@ int main(int argc, char* argv[]){
     FILE *fp;
     fp = fopen(path_to_file, "r");
     memset(buffer+2, 0, BUFSIZE-2);
+
+    //send size of file
+    fseek(fp, 0L, SEEK_END);
+    uint32_t file_size = ftell(fp);
+    printf("%d\n", file_size);
+    uint32_t *sdu = (uint32_t*)packet->sdu;
+    *sdu = file_size;
+    write(miptp_fd, buffer, 2+sizeof(unsigned long));
+    rewind(fp);
+
+    memset(buffer+2, 0, BUFSIZE-2);
     while (fgets(buffer+2, 1400, fp) != NULL) {
         int size = strlen(buffer+2)+2; //2 bytes in header
         write(miptp_fd, buffer, size);
