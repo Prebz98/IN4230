@@ -1,5 +1,4 @@
 #include "general.h"
-#include <stdint.h>
 #include <sys/poll.h>
 
 #define APPROVED 1
@@ -18,6 +17,18 @@ struct miptp_pdu{
     uint8_t padding : 2;
     char sdu[BUFSIZE-4];
 }__attribute__((packed));
+
+struct host{
+    uint8_t port;
+    int fd_index;
+    int seq;
+    struct message_node *message_queue;
+};
+
+struct message_node{
+    struct message_node *next;
+    struct miptp_pdu packet;
+};
 
 int argparser(int argc, char **argv,int *timeout_msecs, char* mip_daemon, char* path_to_higher);
 int connect_to_mip_daemon(char* path_to_mip, struct pollfd *fds);

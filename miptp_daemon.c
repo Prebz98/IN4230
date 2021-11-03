@@ -2,6 +2,7 @@
 #include "general.h"
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/poll.h>
 #include <sys/socket.h>
@@ -19,9 +20,9 @@ int main(int argc, char* argv[]){
     char path_to_higher[BUFSIZE]; //path to higher layer unix
     int done = 0;
     int num_fds = 0;
-    // char buffer_up[BUFSIZE];
-    // char buffer_down[BUFSIZE];
     
+    struct host *hosts = malloc(sizeof(struct host)); // list of hosts, starts with empty
+
     uint8_t port_numbers[MAX_NODES];//port_number[i] is the port number to fds[i]
     int number_of_ports = 0;
     memset(port_numbers, 0, MAX_NODES);
