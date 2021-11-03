@@ -1,4 +1,5 @@
 #include "general.h"
+#include <netinet/in.h>
 #include <string.h>
 #include <stdint.h>
 #include "file_transfer.h"
@@ -88,9 +89,8 @@ int main(int argc, char* argv[]){
     //send size of file
     fseek(fp, 0L, SEEK_END);
     uint32_t file_size = ftell(fp);
-    printf("%d\n", file_size);
     uint32_t *sdu = (uint32_t*)packet->sdu;
-    *sdu = file_size;
+    *sdu = htonl(file_size);
     write(miptp_fd, buffer, 2+sizeof(unsigned long));
     rewind(fp);
 

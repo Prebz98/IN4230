@@ -1,4 +1,5 @@
 #include "general.h"
+#include <netinet/in.h>
 #include <stdint.h>
 #include <string.h>
 #include <bits/getopt_core.h>
@@ -81,8 +82,7 @@ int main(int argc, char* argv[]){
         int index = check_link(packet->port, packet->mip, links, link_len);
 
         if (index == -1){ //if not known
-            uint32_t file_size = *(uint32_t*)packet->sdu;
-            printf("%d\n", file_size);
+            uint32_t file_size = ntohl(*(uint32_t*)packet->sdu);
             create_new_link(packet->port, packet->mip, file_size, links, &link_len);
         }
         else { //sender is known
