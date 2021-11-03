@@ -77,10 +77,14 @@ void forward_to_mip(int mip_daemon, int application, uint8_t app_port){
     uint8_t dst_port = buffer_up[1];
     memset(buffer_down, 0, BUFSIZE);
 
+    printf("%d\n", rc);
+
     //32 bit align
-    uint8_t size = 6 + rc; //6 bytes of header, 4miptp + 2mip
-    uint8_t rest = size % 4;
+    int size = 6 + rc; //6 bytes of header, 4miptp + 2mip
+    int rest = size % 4;
     size += rest ? 4-rest : 0;
+
+    printf("%d\n", size);
 
     struct unix_packet *packet = (struct unix_packet*)buffer_down;
     struct miptp_pdu *miptp_pdu = (struct miptp_pdu*)packet->msg;
@@ -94,7 +98,8 @@ void forward_to_mip(int mip_daemon, int application, uint8_t app_port){
     packet->ttl = 0; //default 
     memcpy(packet->msg, miptp_pdu, size); 
 
-    write(mip_daemon, buffer_down, size);
+    rc = write(mip_daemon, buffer_down, size);
+    printf("%d %s\n", rc, miptp_pdu->sdu);
 }
 
 int index_of_port(uint8_t port, uint8_t *port_numbers, int number_of_ports){

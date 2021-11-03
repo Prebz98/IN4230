@@ -146,8 +146,8 @@ void write_to_unix_socket(char *msg, uint8_t msg_size, uint8_t mip_dst, int sock
     }
 
     //the msgsize already has the size of the message + the mip and ttl
-    uint8_t total_size = 2+msg_size;
-    uint8_t rest = total_size % 4;
+    int total_size = 2+msg_size;
+    int rest = total_size % 4;
     total_size += rest ? 4-rest : 0;
 
     write(sock_server, buffer, total_size);
@@ -556,7 +556,7 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                 if (rc == -1){
                     error(rc, "read from raw socket");
                 }
-                uint8_t size = rc;
+                int size = rc;
                 struct mip_hdr *hdr = (struct mip_hdr*)raw_buffer;
 
                 // check if its ping, arp, routing or MIPTP
@@ -600,7 +600,7 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                     printf("I have received a PING message!\n");
                     int index = sizeof(struct mip_hdr);
                     char *translation = (char*)raw_buffer; 
-                    uint8_t total_size = hdr->sdu_len*4;
+                    int total_size = hdr->sdu_len*4;
                     struct unix_packet up;
                     memset(&up, 0, sizeof(struct unix_packet));
                     up.mip = hdr->src;
@@ -616,7 +616,7 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                     printf("I have received a MIPTP message!\n");
                     int index = sizeof(struct mip_hdr);
                     char *translation = (char*)raw_buffer; 
-                    uint8_t total_size = hdr->sdu_len*4;
+                    int total_size = hdr->sdu_len*4;
                     struct unix_packet up;
                     memset(&up, 0, sizeof(struct unix_packet));
                     up.mip = hdr->src;
@@ -668,7 +668,7 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                 if (rc == -1){
                     error(rc, "read from unix socket");
                 }
-                uint8_t size = rc;
+                int size = rc;
                 struct unix_packet *up = (struct unix_packet*)buffer;
                 mip_dst = up->mip;
                 if (debug_mode){

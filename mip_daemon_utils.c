@@ -75,12 +75,12 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
         memset(raw_buffer, 0, BUFSIZE);
 
         uint8_t number_of_pairs = packet->msg[3];
-        uint8_t message_size = 4+(number_of_pairs*sizeof(struct update_pair));
+        int message_size = 4+(number_of_pairs*sizeof(struct update_pair));
 
         struct update_pair *list = (struct update_pair*)&packet->msg[4];
 
-        uint8_t total_size = 4+message_size;
-        uint8_t rest = total_size % 4;
+        int total_size = 4+message_size;
+        int rest = total_size % 4;
         total_size += rest ? 4-rest : 0;
 
         struct mip_hdr hdr = create_mip_hdr(packet->mip, my_mip, 1, message_size, 0x04);
@@ -135,8 +135,8 @@ void handle_routing_msg(struct pollfd *fds, uint8_t my_mip, struct cache *cache_
             struct sockaddr_ll interface;
             struct raw_packet packet = pop_waiting_queue(routing_queue);
 
-            uint8_t size = (packet.hdr.sdu_len*4) + 4;
-            uint8_t rest = size % 4;
+            int size = (packet.hdr.sdu_len*4) + 4;
+            int rest = size % 4;
             size += rest ? 4-rest : 0;
 
             memcpy(raw_buffer, &packet, size);
@@ -213,7 +213,7 @@ void send_arp_queue(struct waiting_queue *arp_queue, uint8_t mip, struct pollfd 
         //if the destination to the waiting message is equal to the one we now have -> send it
         if (current_node->packet.hdr.dst == mip){
             memset(raw_buffer, 0, BUFSIZE);
-            uint8_t size = sizeof(struct mip_hdr) + (4*current_node->packet.hdr.sdu_len);
+            int size = sizeof(struct mip_hdr) + (4*current_node->packet.hdr.sdu_len);
             memcpy(raw_buffer, &current_node->packet, size);
             int index = check_cache(mip);
 

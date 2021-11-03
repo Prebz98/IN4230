@@ -34,7 +34,7 @@ int argparser(int argc, char **argv, uint8_t *port, char *path_to_miptp, char *d
             Portnumber: the port number to listen on\n\
             Socket lower: filename for unix socket to miptp\n\
             Directory: the directory to place incoming files\n");
-            printf("Program description:\nThe program will listen on the port specified. Incoming files will be stored in a directory. The file in the directory will start by indicating where the incoming file came from.\n");
+            printf("Program description:\nThe program will listen on the port specified. Incoming files will be stored in a directory. The filename will indicate where the incoming file came from.\n");
             exit(EXIT_SUCCESS);
             break;
         default:
@@ -70,12 +70,12 @@ int main(int argc, char* argv[]){
     printf("Port number accepted\n");
 
     while (!done) {
+        memset(buffer, 0, BUFSIZE);
         int rc = read_from_socket(miptp_fd, buffer);
         if (rc == -1){
             done = 1;
             continue;
         }
-
         struct app_pdu *packet = (struct app_pdu*)buffer;
         if (!check_link(packet->port, packet->mip, links, link_len)){
             create_new_link(packet->port, packet->mip, links, &link_len);
