@@ -64,9 +64,11 @@ MIPTP_DAEMON_C = ./miptp_daemon ${TIMEOUT} ${SOCK_C} ${MIPTP_SOCK_C}
 MIPTP_DAEMON_D = ./miptp_daemon ${TIMEOUT} ${SOCK_D} ${MIPTP_SOCK_D}
 MIPTP_DAEMON_E = ./miptp_daemon ${TIMEOUT} ${SOCK_E} ${MIPTP_SOCK_E}
 
-FILE_TRANSFER_A = ./file_transfer ${FILE_TO_SEND} ${MIPTP_SOCK_A} ${MIP_B} ${PORT_B}
+FILE_TRANSFER_A = ./file_transfer ${FILE_TO_SEND} ${MIPTP_SOCK_A} ${MIP_C} ${PORT_C}
 
 FILE_SERVER_B = ./file_server ${PORT_B} ${MIPTP_SOCK_B} ${RECEIVE_DIRECTORY}
+
+FILE_SERVER_C = ./file_server ${PORT_C} ${MIPTP_SOCK_C} ${RECEIVE_DIRECTORY}
 
 all: ping_client mip_daemon ping_server routing_daemon miptp_daemon file_transfer file_server
 clear_received: 
@@ -168,8 +170,8 @@ runMiptpA: miptp_daemon
 runMiptpB: miptp_daemon
 	${MIPTP_DAEMON_B}
 
-runMiptpE: miptp_daemon
-	${MIPTP_DAEMON_E}
+runMiptpC: miptp_daemon
+	${MIPTP_DAEMON_C}
 
 runFTA: file_transfer
 	${FILE_TRANSFER_A}
@@ -188,6 +190,9 @@ runFTE: file_transfer
 
 runFSB: file_server
 	${FILE_SERVER_B}
+
+runFSC: file_server
+	${FILE_SERVER_C}
 
 clean: 
 	rm -f *.o ping_client ping_server mip_daemon routing_daemon file_server file_transfer miptp_daemon

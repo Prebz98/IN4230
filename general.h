@@ -10,6 +10,7 @@
 #define ROUTING_REQUEST "REQ"
 #define ROUTING_RESPONSE "RES"
 #define MAX_NODES 20
+#define MAX_LINKS 30
 #define TTL 3
 
 struct unix_packet {

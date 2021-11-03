@@ -77,14 +77,10 @@ void forward_to_mip(int mip_daemon, int application, uint8_t app_port){
     uint8_t dst_port = buffer_up[1];
     memset(buffer_down, 0, BUFSIZE);
 
-    printf("%d\n", rc);
-
     //32 bit align
     int size = 6 + rc; //6 bytes of header, 4miptp + 2mip
     int rest = size % 4;
     size += rest ? 4-rest : 0;
-
-    printf("%d\n", size);
 
     struct unix_packet *packet = (struct unix_packet*)buffer_down;
     struct miptp_pdu *miptp_pdu = (struct miptp_pdu*)packet->msg;
@@ -99,7 +95,6 @@ void forward_to_mip(int mip_daemon, int application, uint8_t app_port){
     memcpy(packet->msg, miptp_pdu, size); 
 
     rc = write(mip_daemon, buffer_down, size);
-    printf("%d %s\n", rc, miptp_pdu->sdu);
 }
 
 int index_of_port(uint8_t port, uint8_t *port_numbers, int number_of_ports){
@@ -119,6 +114,35 @@ int index_of_port(uint8_t port, uint8_t *port_numbers, int number_of_ports){
         }
     }
     return -1;
+}
+
+void forward_to_app(struct pollfd *mip_daemon, uint8_t *port_numbers, int number_of_ports, struct pollfd *applications){
+    /*
+    * reads a message from mip daemon and forwards it to the right application
+
+    * mip_daemon: pollfd to mipdaemon
+    * port_numbers: list of portnumbers
+    * number_of_ports: number of ports
+    * applications: list of application hosts
+    */
+
+    printf("SEND MESSAGE TO APP\n");
+    char buffer[BUFSIZE];
+    int rc = read(mip_daemon->fd, buffer, BUFSIZE);
+    struct unix_packet *packet_received = (struct unix_packet*)buffer; 
+    struct miptp_pdu *tp_pdu = (struct miptp_pdu*)packet_received->msg;
+    uint8_t src_port = tp_pdu->src_port;
+    uint8_t src_mip = packet_received->mip;
+    uint8_t dst_port = tp_pdu->dst_port;
+    struct app_pdu *message_to_send = (struct app_pdu*)tp_pdu->sdu;
+    message_to_send->mip = src_mip;
+    message_to_send->port = src_port;
+
+    int index_of_app = index_of_port(dst_port, port_numbers, number_of_ports);
+    int app_fd = applications[index_of_app].fd;
+
+    write(app_fd, message_to_send, rc-6); // 2 bytes removed from unix_packet to miptp_pdu
+    //4 removed from miptp_pdy to app_pdu
 }
 
 void send_port_response(int fd, uint8_t port, int approved){

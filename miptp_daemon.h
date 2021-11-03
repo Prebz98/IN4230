@@ -27,3 +27,4 @@ int available_port(uint8_t *port_numbers, uint8_t port);
 void send_port_response(int fd, uint8_t port, int approved);
 void forward_to_mip(int mip_daemon, int application, uint8_t app_port);
 int index_of_port(uint8_t port, uint8_t *port_numbers, int number_of_ports);
+void forward_to_app(struct pollfd *mip_daemon, uint8_t *port_numbers, int number_of_ports, struct pollfd *applications);

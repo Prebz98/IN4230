@@ -55,7 +55,7 @@ int main(int argc, char* argv[]){
     char buffer[BUFSIZE];
     int done = 0;
     argparser(argc, argv, &port, path_miptp, path_directory);
-    struct link links[MAX_NODES];
+    struct link links[MAX_LINKS];
     int link_len = 0;
     int miptp_fd = connect_to_miptp(path_miptp);
     

@@ -9,6 +9,10 @@
 
 int main(int argc, char* argv[]){
 
+    printf("\n\n\n");
+    printf(LINE);
+    printf("\n\n");
+
     int timeout_msecs; //timeout for a message
     char path_to_mip[BUFSIZE]; //path to lower layer unix
     int mip_fd; //mip daemon fd
@@ -58,23 +62,7 @@ int main(int argc, char* argv[]){
         // the mip daemon has sent a message
         // forward it to the right app
         else if (mip_daemon->revents & POLLIN) {
-            printf("SEND MESSAGE TO APP\n");
-            char buffer[BUFSIZE];
-            int rc = read(mip_daemon->fd, buffer, BUFSIZE);
-            struct unix_packet *packet_received = (struct unix_packet*)buffer; 
-            struct miptp_pdu *tp_pdu = (struct miptp_pdu*)packet_received->msg;
-            uint8_t src_port = tp_pdu->src_port;
-            uint8_t src_mip = packet_received->mip;
-            uint8_t dst_port = tp_pdu->dst_port;
-            struct app_pdu *message_to_send = (struct app_pdu*)tp_pdu->sdu;
-            message_to_send->mip = src_mip;
-            message_to_send->port = src_port;
-
-            int index_of_app = index_of_port(dst_port, port_numbers, number_of_ports);
-            int app_fd = applications[index_of_app].fd;
-
-            write(app_fd, message_to_send, rc-6); // 2 bytes removed from unix_packet to miptp_pdu
-            //4 removed from miptp_pdy to app_pdu
+            forward_to_app(mip_daemon, port_numbers, number_of_ports, applications);
         }
 
         else {
