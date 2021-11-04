@@ -27,3 +27,4 @@ void read_from_socket(int sock_server, char* buffer, bool *done, struct node *ro
 void free_linked_list(struct node *list);
 void identify_broken_path(struct node *routing_list, int sock_server);
 int argparser(int argc, char **argv, char* path);
+void send_update(struct node *routing_list, int sock_server);

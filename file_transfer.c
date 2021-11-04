@@ -100,4 +100,5 @@ int main(int argc, char* argv[]){
         write(miptp_fd, buffer, size);
         memset(buffer+2, 0, BUFSIZE-2);
     } 
+    sleep(50);
 }

@@ -42,6 +42,7 @@ int main(int argc, char* argv[]){
         if (((current_time.tv_sec-time_sent_hlo.tv_sec)) > 5){
             write_hello(sock_server);
             gettimeofday(&time_sent_hlo, NULL);
+            send_update(routing_list, sock_server);
         }
         identify_broken_path(routing_list, sock_server);
 

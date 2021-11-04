@@ -1,7 +1,7 @@
 VALGRIND = valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes
 
 TTL = 3
-TIMEOUT = 1000
+TIMEOUT = 1
 FILE_TO_SEND = test
 RECEIVE_DIRECTORY = received
 

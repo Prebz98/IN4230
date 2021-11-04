@@ -1,12 +1,14 @@
 #include "general.h"
 #include "miptp_daemon.h"
 #include <bits/getopt_core.h>
+#include <bits/types/struct_timeval.h>
 #include <netinet/in.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/poll.h>
+#include <sys/time.h>
 #include <sys/un.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -88,8 +90,25 @@ void send_ack(struct pollfd *mip_daemon, uint8_t dst_port, uint8_t dst_mip, uint
     // fill the packet header
     packet->mip = dst_mip;
     packet->ttl = 0;
+    
 
-    write(mip_daemon->fd, packet, 3+7);
+    write(mip_daemon->fd, packet, 12);
+}
+
+void add_to_queue(struct message_node *new_node, struct message_node *queue){
+    /*
+    * adds a new message node to a queue
+
+    * new_node: the node to add
+    * queue: the queue
+    */
+
+    struct message_node *current_node = queue;
+
+    while (current_node->next != NULL) {
+        current_node = current_node->next;
+    }
+    current_node->next = new_node;
 }
 
 void forward_to_mip(int mip_daemon, int application, struct host *host){
@@ -116,12 +135,12 @@ void forward_to_mip(int mip_daemon, int application, struct host *host){
     struct miptp_pdu *miptp_pdu = (struct miptp_pdu*)packet->msg;
 
     miptp_pdu->dst_port = buffer_up[1];
-    miptp_pdu->seq = htons(host->seq);
+    miptp_pdu->seq = htons(host->seq_send);
     //take care of overflow
-    if (host->seq == 1 << 14){
-        host->seq = 0;
+    if (host->seq_send == 1 << 14){
+        host->seq_send = 0;
     }else {
-        host->seq = host->seq +1;
+        host->seq_send = host->seq_send +1;
     }
 
     miptp_pdu->src_port = host->port;
@@ -135,7 +154,13 @@ void forward_to_mip(int mip_daemon, int application, struct host *host){
     struct message_node *new_node = malloc(sizeof(struct message_node));
     new_node->packet = *packet;
     new_node->next = NULL;
-    host->message_queue->next = new_node;
+    struct timeval time;
+    gettimeofday(&time, NULL);
+    new_node->time = time;
+    new_node->size = size;
+
+    add_to_queue(new_node, host->message_queue);
+
 
     rc = write(mip_daemon, buffer_down, size);
 }
@@ -159,9 +184,26 @@ int index_of_port(uint8_t port, struct host *hosts, int num_hosts){
     return -1;
 }
 
+void resend_window(struct message_node *queue, struct pollfd *mip_daemon){
+    /*
+    * send the 16 first packets
+
+    * queue: the message queue
+    */
+
+    for (int i=1; i<17; i++){
+        write(mip_daemon->fd, &queue[i].packet, queue[i].size);;       
+    }
+}
+
 void read_message(struct pollfd *mip_daemon, struct host *hosts, int num_hosts, struct pollfd *applications){
     /*
     * reads a message and checks if its an ACK or a message for an app. Then treats it accordingly. 
+
+    * mip_daemon: mip_daemon pollfd
+    * hosts: all hosts
+    * num_hosts: number of hosts
+    * applications: fds to application hosts
     */
     char buffer[BUFSIZE];
     int rc = read(mip_daemon->fd, buffer, BUFSIZE);
@@ -173,21 +215,25 @@ void read_message(struct pollfd *mip_daemon, struct host *hosts, int num_hosts, 
     uint16_t seq = ntohs(tp_pdu->seq);
 
     int index_of_app = index_of_port(dst_port, hosts, num_hosts);
-    printf("%s\n", tp_pdu->sdu);
     if (memcmp(tp_pdu->sdu, "ACK", 3) == 0){
         //move window by 1
         struct message_node *old = hosts[index_of_app].message_queue;
-        hosts[index_of_app].message_queue = hosts[index_of_app].message_queue->next;
-        free(old);
-        printf("ACK GOT!\n");
+        if (old != NULL){
+            hosts[index_of_app].message_queue = hosts[index_of_app].message_queue->next;
+            free(old);
+        }
     }
     else { //its a message for an app
         int app_fd = applications[index_of_app].fd;
-        int *exp_seq = &hosts[index_of_app].seq;
+        int *exp_seq = &hosts[index_of_app].seq_recv;
         // not expected seq, ignore
-        if (seq != *exp_seq){
-            printf("NOT EXP\n");
+        if (seq != *exp_seq && *exp_seq != -1){
             return;
+        }
+
+        //first packet, sets seq
+        if (*exp_seq == -1) {
+            *exp_seq = seq;
         }
 
         send_ack(mip_daemon, src_port, src_mip, seq, dst_port);
@@ -271,7 +317,7 @@ void setup_unix_socket(char *path, struct pollfd *fds) {
 }
 
 
-int argparser(int argc, char **argv, int *timeout_msecs, char* mip_daemon, char* path_to_higher) {
+int argparser(int argc, char **argv, int *timeout_secs, char* mip_daemon, char* path_to_higher) {
     /*
     * parses all arguments
 
@@ -292,7 +338,7 @@ int argparser(int argc, char **argv, int *timeout_msecs, char* mip_daemon, char*
             printf("Optional args:\n\
             -h Help\n\
             Non-optional args:\n\
-            Timeout: timeout for go back N in msecs\
+            Timeout: timeout for go back N in secs\
             Socket lower: filename for unix socket to lower layer\n\n");
             printf("Program description:\nThe program will work as a transport layer over the mip network layer. It will send packets received by the application down to the mip daemon. And it will send packet received by the mip daemon up to the application. The MIPTP daemon will reply with acks to ensure reliability and in-order data transmission.\n");
             exit(EXIT_SUCCESS);
@@ -302,7 +348,7 @@ int argparser(int argc, char **argv, int *timeout_msecs, char* mip_daemon, char*
         }
 
     index = optind;
-    *timeout_msecs = atoi(argv[index]);
+    *timeout_secs = atoi(argv[index]);
     strcpy(mip_daemon, argv[index+1]);
     strcpy(path_to_higher, argv[index+2]);
     return 0;

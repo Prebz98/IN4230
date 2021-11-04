@@ -1,11 +1,14 @@
 #include "miptp_daemon.h"
 #include "general.h"
+#include <bits/types/struct_timeval.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/poll.h>
 #include <sys/socket.h>
+#include <sys/time.h>
+#include <time.h>
 #include <unistd.h>
 
 int main(int argc, char* argv[]){
@@ -14,12 +17,13 @@ int main(int argc, char* argv[]){
     printf(LINE);
     printf("\n\n");
 
-    int timeout_msecs; //timeout for a message
+    int timeout_secs; //timeout for a message
     char path_to_mip[BUFSIZE]; //path to lower layer unix
     int mip_fd; //mip daemon fd
     char path_to_higher[BUFSIZE]; //path to higher layer unix
     int done = 0;
-    
+    srand(time(NULL)); //seed random number
+
     struct host hosts[MAX_LINKS]; //list with application hosts
     int num_hosts = 0;
 
@@ -33,12 +37,22 @@ int main(int argc, char* argv[]){
     struct pollfd *app_fds = &fds[2];
 
 
-    argparser(argc, argv, &timeout_msecs, path_to_mip, path_to_higher);
+    argparser(argc, argv, &timeout_secs, path_to_mip, path_to_higher);
     mip_fd = connect_to_mip_daemon(path_to_mip, fds);
     write_identifying_msg(mip_fd);
     setup_unix_socket(path_to_higher, fds);
     
     while (!done) {
+        struct timeval current_time;
+        gettimeofday(&current_time, NULL);
+        for (int i=0; i<num_hosts; i++){
+            //timeout of message
+            if ((double)(current_time.tv_sec - hosts[i].message_queue[1].time.tv_sec) > timeout_secs){
+                printf("RESEND\n");
+                resend_window(hosts[i].message_queue, mip_daemon);
+            }
+        }
+
         poll(fds, num_hosts+2, 1000); //+2 for mip_daemon and connection point
 
         //mip daemon disconnected
@@ -54,7 +68,8 @@ int main(int argc, char* argv[]){
 
             struct host new_host;
             new_host.fd_index = num_hosts;
-            new_host.seq = 0; //todo
+            new_host.seq_send = rand(); 
+            new_host.seq_recv = -1;
 
             struct message_node *new_node = malloc(sizeof(struct message_node));
             new_node->next = NULL;
@@ -65,7 +80,6 @@ int main(int argc, char* argv[]){
         }
 
         // the mip daemon has sent a message
-        // forward it to the right app
         else if (mip_daemon->revents & POLLIN) {
             read_message(mip_daemon, hosts, num_hosts, app_fds);
         }
@@ -100,5 +114,5 @@ int main(int argc, char* argv[]){
             }
         }
     }
-    
+    //clear malloced message queues
 }
