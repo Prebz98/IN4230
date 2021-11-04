@@ -55,6 +55,10 @@ int main(int argc, char* argv[]){
             struct host new_host;
             new_host.fd_index = num_hosts;
             new_host.seq = 0; //todo
+
+            struct message_node *new_node = malloc(sizeof(struct message_node));
+            new_node->next = NULL;
+            new_host.message_queue = new_node;
             hosts[num_hosts] = new_host;
             num_hosts++;
             printf("New application connected\n");
@@ -63,7 +67,7 @@ int main(int argc, char* argv[]){
         // the mip daemon has sent a message
         // forward it to the right app
         else if (mip_daemon->revents & POLLIN) {
-            forward_to_app(mip_daemon, hosts, num_hosts, app_fds);
+            read_message(mip_daemon, hosts, num_hosts, app_fds);
         }
 
         else {

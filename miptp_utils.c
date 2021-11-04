@@ -63,6 +63,35 @@ void write_identifying_msg(int mip_fd){
     printf("Identify myself for daemon.\n");
 }
 
+void send_ack(struct pollfd *mip_daemon, uint8_t dst_port, uint8_t dst_mip, uint16_t seq, uint8_t src_port){
+    /*
+    * sends an ack message to target
+
+    * mip_daemon: mip_daemon pollfd
+    * dst_port: port to target
+    * dst_mip: mip to target
+    * seq: seq number
+    * src_port: source port
+    */
+
+    char buffer[BUFSIZE];
+    memset(buffer, 0, BUFSIZE);
+    struct unix_packet *packet = (struct unix_packet*)buffer;
+    struct miptp_pdu *miptp_pdu = (struct miptp_pdu*)packet->msg;
+
+    // fill the packet sdu
+    miptp_pdu->dst_port = dst_port;
+    miptp_pdu->src_port = src_port;
+    miptp_pdu->seq = seq;
+    memcpy(miptp_pdu->sdu, "ACK", 3);
+
+    // fill the packet header
+    packet->mip = dst_mip;
+    packet->ttl = 0;
+
+    write(mip_daemon->fd, packet, 3+7);
+}
+
 void forward_to_mip(int mip_daemon, int application, struct host *host){
     /*
     * reads a message from the application and forwards it to mip daemon
@@ -88,17 +117,25 @@ void forward_to_mip(int mip_daemon, int application, struct host *host){
 
     miptp_pdu->dst_port = buffer_up[1];
     miptp_pdu->seq = htons(host->seq);
+    //take care of overflow
     if (host->seq == 1 << 14){
         host->seq = 0;
     }else {
         host->seq = host->seq +1;
     }
+
     miptp_pdu->src_port = host->port;
     memcpy(miptp_pdu->sdu, buffer_up, rc);
 
     packet->mip = dst_mip;
     packet->ttl = 0; //default 
     memcpy(packet->msg, miptp_pdu, size); 
+
+    //save to buffer
+    struct message_node *new_node = malloc(sizeof(struct message_node));
+    new_node->packet = *packet;
+    new_node->next = NULL;
+    host->message_queue->next = new_node;
 
     rc = write(mip_daemon, buffer_down, size);
 }
@@ -122,17 +159,10 @@ int index_of_port(uint8_t port, struct host *hosts, int num_hosts){
     return -1;
 }
 
-void forward_to_app(struct pollfd *mip_daemon, struct host *hosts, int num_hosts, struct pollfd *applications){
+void read_message(struct pollfd *mip_daemon, struct host *hosts, int num_hosts, struct pollfd *applications){
     /*
-    * reads a message from mip daemon and forwards it to the right application
-
-    * mip_daemon: pollfd to mipdaemon
-    * hosts: list of hosts
-    * num_hosts: length of the list
-    * applications: list of application hosts
+    * reads a message and checks if its an ACK or a message for an app. Then treats it accordingly. 
     */
-
-    printf("SEND MESSAGE TO APP\n");
     char buffer[BUFSIZE];
     int rc = read(mip_daemon->fd, buffer, BUFSIZE);
     struct unix_packet *packet_received = (struct unix_packet*)buffer; 
@@ -143,28 +173,38 @@ void forward_to_app(struct pollfd *mip_daemon, struct host *hosts, int num_hosts
     uint16_t seq = ntohs(tp_pdu->seq);
 
     int index_of_app = index_of_port(dst_port, hosts, num_hosts);
-    int app_fd = applications[index_of_app].fd;
-    int *exp_seq = &hosts[index_of_app].seq;
-
-    // not expected seq, ignore
-    if (seq != *exp_seq){
-        return;
+    printf("%s\n", tp_pdu->sdu);
+    if (memcmp(tp_pdu->sdu, "ACK", 3) == 0){
+        //move window by 1
+        struct message_node *old = hosts[index_of_app].message_queue;
+        hosts[index_of_app].message_queue = hosts[index_of_app].message_queue->next;
+        free(old);
+        printf("ACK GOT!\n");
     }
-    if (*exp_seq == 1 << 14) {
-        *exp_seq = 0;    
-    }else {
-        printf("HER\n");
-        *exp_seq = *exp_seq +1;
+    else { //its a message for an app
+        int app_fd = applications[index_of_app].fd;
+        int *exp_seq = &hosts[index_of_app].seq;
+        // not expected seq, ignore
+        if (seq != *exp_seq){
+            printf("NOT EXP\n");
+            return;
+        }
+
+        send_ack(mip_daemon, src_port, src_mip, seq, dst_port);
+        //increase exp_seq
+        //take care of overflow
+        if (*exp_seq == 1 << 14) {
+            *exp_seq = 0;    
+        }else {
+            *exp_seq = *exp_seq +1;
+        }
+        struct app_pdu *message_to_send = (struct app_pdu*)tp_pdu->sdu;
+        message_to_send->mip = src_mip;
+        message_to_send->port = src_port;
+
+        write(app_fd, message_to_send, rc-6); // 2 bytes removed from unix_packet to miptp_pdu
+        //4 removed from miptp_pdy to app_pdu
     }
-    
-
-    struct app_pdu *message_to_send = (struct app_pdu*)tp_pdu->sdu;
-    message_to_send->mip = src_mip;
-    message_to_send->port = src_port;
-
-
-    write(app_fd, message_to_send, rc-6); // 2 bytes removed from unix_packet to miptp_pdu
-    //4 removed from miptp_pdy to app_pdu
 }
 
 void send_port_response(int fd, uint8_t port, int approved){

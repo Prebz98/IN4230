@@ -27,7 +27,7 @@ struct host{
 
 struct message_node{
     struct message_node *next;
-    struct miptp_pdu packet;
+    struct unix_packet packet;
 };
 
 int argparser(int argc, char **argv,int *timeout_msecs, char* mip_daemon, char* path_to_higher);
@@ -38,4 +38,5 @@ int available_port(struct host *hosts, int num_hosts, uint8_t port);
 void send_port_response(int fd, uint8_t port, int approved);
 void forward_to_mip(int mip_daemon, int application, struct host *host);
 int index_of_port(uint8_t port, struct host *hosts, int num_hosts);
-void forward_to_app(struct pollfd *mip_daemon, struct host *hosts, int num_hosts, struct pollfd *applications);
+void send_ack(struct pollfd *mip_daemon, uint8_t dst_port, uint8_t dst_mip, uint16_t seq, uint8_t src_port);
+void read_message(struct pollfd *mip_daemon, struct host *hosts, int num_hosts, struct pollfd *applications);
