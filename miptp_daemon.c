@@ -73,7 +73,7 @@ int main(int argc, char* argv[]){
 
             struct host new_host;
             new_host.fd_index = num_hosts;
-            new_host.seq_send = rand(); 
+            new_host.seq_send = 0; //rand(); 
             new_host.seq_recv = -1;
 
             struct message_node *new_node = malloc(sizeof(struct message_node));

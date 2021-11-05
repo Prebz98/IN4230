@@ -208,6 +208,28 @@ void resend_window(struct message_node *queue, struct pollfd *mip_daemon){
     }
 }
 
+void send_next(struct pollfd *mip_daemon, struct host *host){
+    /*
+    * sends the 16th packet in the queue if there is one
+    * this happens after the window has been moved
+
+    * mip_daemon: mip_daemon fd
+    * host: application host
+    */
+
+    struct message_node *current_node = host->message_queue;
+    int i = 0;
+    while (current_node->next != NULL && i != 15) {
+        current_node = current_node->next;
+    }
+    if (i == 15){
+        struct timeval time;
+        gettimeofday(&time, NULL);
+        write(mip_daemon->fd, &current_node->packet, current_node->size);
+        current_node->time = time;
+    }
+}
+
 void read_message(struct pollfd *mip_daemon, struct host *hosts, int num_hosts, struct pollfd *applications){
     /*
     * reads a message and checks if its an ACK or a message for an app. Then treats it accordingly. 
@@ -233,6 +255,7 @@ void read_message(struct pollfd *mip_daemon, struct host *hosts, int num_hosts, 
         if (old != NULL && seq==ntohs(hosts[index_of_app].message_queue->next->seq)){
             hosts[index_of_app].message_queue = hosts[index_of_app].message_queue->next;
             free(old);
+            send_next(mip_daemon, &(hosts[index_of_app]));
         }
     }
     else { //its a message for an app
