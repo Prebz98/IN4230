@@ -95,9 +95,10 @@ int main(int argc, char* argv[]){
     rewind(fp);
 
     memset(buffer+2, 0, BUFSIZE-2);
-    while (fgets(buffer+2, 1400, fp) != NULL) {
-        int size = strlen(buffer+2)+2; //2 bytes in header
-        write(miptp_fd, buffer, size);
+    int size;
+    while ((size = fread(buffer+2, 1, 1400, fp)) != 0) {
+        // intsize = strlen(buffer+2)+2; //2 bytes in header
+        write(miptp_fd, buffer, size+2);
         memset(buffer+2, 0, BUFSIZE-2);
     } 
     sleep(50);

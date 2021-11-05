@@ -32,6 +32,7 @@ struct message_node{
     struct unix_packet packet;
     struct timeval time;
     int size;
+    int seq;
 };
 
 int argparser(int argc, char **argv,int *timeout_secs, char* mip_daemon, char* path_to_higher);

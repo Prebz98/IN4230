@@ -71,8 +71,8 @@ class H2Topo(Topo):
 
         # Add links
         # Notice the 2% loss to emulate packet loss in order to test reliability
-        self.addLink(A, B, bw=10, delay='10ms', loss=5.0, use_tbf=False)
-        self.addLink(B, C, bw=10, delay='10ms', loss=5.0, use_tbf=False)
+        self.addLink(A, B, bw=10, delay='10ms', loss=2.0, use_tbf=False)
+        self.addLink(B, C, bw=10, delay='10ms', loss=2.0, use_tbf=False)
 
 
 terms = []

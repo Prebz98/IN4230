@@ -46,10 +46,15 @@ int main(int argc, char* argv[]){
         struct timeval current_time;
         gettimeofday(&current_time, NULL);
         for (int i=0; i<num_hosts; i++){
-            //timeout of message
-            if ((double)(current_time.tv_sec - hosts[i].message_queue[1].time.tv_sec) > timeout_secs){
-                printf("RESEND\n");
-                resend_window(hosts[i].message_queue, mip_daemon);
+            //if a host has messages in the queue
+            if (hosts[i].message_queue->next != NULL){
+                int x;
+                //and the first message has timed out
+                if ((x = (current_time.tv_sec - hosts[i].message_queue->next->time.tv_sec)) > timeout_secs){
+                    printf("RESEND %d\n", hosts[i].message_queue->next->packet.msg[2]);
+                    //resend the window
+                    resend_window(hosts[i].message_queue, mip_daemon);
+                }
             }
         }
 

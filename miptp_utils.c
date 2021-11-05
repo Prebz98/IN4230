@@ -154,6 +154,7 @@ void forward_to_mip(int mip_daemon, int application, struct host *host){
     struct message_node *new_node = malloc(sizeof(struct message_node));
     new_node->packet = *packet;
     new_node->next = NULL;
+    new_node->seq = ntohs(miptp_pdu->seq);
     struct timeval time;
     gettimeofday(&time, NULL);
     new_node->time = time;
@@ -190,9 +191,15 @@ void resend_window(struct message_node *queue, struct pollfd *mip_daemon){
 
     * queue: the message queue
     */
-
-    for (int i=1; i<17; i++){
-        write(mip_daemon->fd, &queue[i].packet, queue[i].size);;       
+    struct timeval time;
+    gettimeofday(&time, NULL);
+    struct message_node *current_node = queue;
+    int i = 0;
+    while (i < 17 && current_node->next != NULL) {
+        current_node = current_node->next;
+        current_node->time = time;
+        write(mip_daemon->fd, &current_node->packet, current_node->size);
+        i++;
     }
 }
 
@@ -216,9 +223,9 @@ void read_message(struct pollfd *mip_daemon, struct host *hosts, int num_hosts, 
 
     int index_of_app = index_of_port(dst_port, hosts, num_hosts);
     if (memcmp(tp_pdu->sdu, "ACK", 3) == 0){
-        //move window by 1
+        //move window by 1 if there are new messages in the window, and the sequencenumber is what is expected
         struct message_node *old = hosts[index_of_app].message_queue;
-        if (old != NULL){
+        if (old != NULL && seq==ntohs(hosts[index_of_app].message_queue->next->seq)){
             hosts[index_of_app].message_queue = hosts[index_of_app].message_queue->next;
             free(old);
         }
@@ -226,6 +233,7 @@ void read_message(struct pollfd *mip_daemon, struct host *hosts, int num_hosts, 
     else { //its a message for an app
         int app_fd = applications[index_of_app].fd;
         int *exp_seq = &hosts[index_of_app].seq_recv;
+        send_ack(mip_daemon, src_port, src_mip, seq, dst_port);
         // not expected seq, ignore
         if (seq != *exp_seq && *exp_seq != -1){
             return;
@@ -236,7 +244,6 @@ void read_message(struct pollfd *mip_daemon, struct host *hosts, int num_hosts, 
             *exp_seq = seq;
         }
 
-        send_ack(mip_daemon, src_port, src_mip, seq, dst_port);
         //increase exp_seq
         //take care of overflow
         if (*exp_seq == 1 << 14) {
