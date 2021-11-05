@@ -94,6 +94,7 @@ int main(int argc, char* argv[]){
             *bytes_left = *bytes_left - packet_len;
             if (*bytes_left == 0){
                 fclose(file);
+                printf("Transmission complete\n");
             }
         }
         

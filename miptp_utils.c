@@ -95,20 +95,24 @@ void send_ack(struct pollfd *mip_daemon, uint8_t dst_port, uint8_t dst_mip, uint
     write(mip_daemon->fd, packet, 12);
 }
 
-void add_to_queue(struct message_node *new_node, struct message_node *queue){
+int add_to_queue(struct message_node *new_node, struct message_node *queue){
     /*
     * adds a new message node to a queue
 
     * new_node: the node to add
     * queue: the queue
+
+    * returns: index of new packet
     */
 
     struct message_node *current_node = queue;
-
+    int i = 0;
     while (current_node->next != NULL) {
         current_node = current_node->next;
+        i++;
     }
     current_node->next = new_node;
+    return i;
 }
 
 void forward_to_mip(int mip_daemon, int application, struct host *host){
@@ -161,9 +165,10 @@ void forward_to_mip(int mip_daemon, int application, struct host *host){
     new_node->size = size;
 
     add_to_queue(new_node, host->message_queue);
-
-
-    rc = write(mip_daemon, buffer_down, size);
+    //send now if its in the current window
+    if ((ntohs(miptp_pdu->seq) - host->message_queue->next->seq) < 16){
+        write(mip_daemon, buffer_down, size);
+    }
 }
 
 int index_of_port(uint8_t port, struct host *hosts, int num_hosts){
