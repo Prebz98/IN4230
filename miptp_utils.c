@@ -267,7 +267,6 @@ void read_message(struct pollfd *mip_daemon, struct host *hosts, int num_hosts, 
     uint8_t src_mip = packet_received->mip;
     uint8_t dst_port = tp_pdu->dst_port;
     uint16_t seq = ntohs(tp_pdu->seq)>>2;
-    printf("seq %d\n", seq);
 
     int index_of_app = index_of_port(dst_port, hosts, num_hosts);
     if (memcmp(tp_pdu->sdu, "ACK", 3) == 0){

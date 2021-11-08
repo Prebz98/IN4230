@@ -15,7 +15,7 @@ struct app_pdu{
 struct miptp_pdu{
     uint8_t src_port;
     uint8_t dst_port;
-    uint16_t seq : 16;
+    uint16_t seq;
     // uint8_t padding : 2;
     char sdu[BUFSIZE-4];
 }__attribute__((packed));
