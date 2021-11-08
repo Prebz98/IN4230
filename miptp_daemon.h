@@ -1,5 +1,6 @@
 #include "general.h"
 #include <bits/types/struct_timeval.h>
+#include <stdint.h>
 #include <sys/poll.h>
 
 #define APPROVED 1
@@ -14,15 +15,21 @@ struct app_pdu{
 struct miptp_pdu{
     uint8_t src_port;
     uint8_t dst_port;
-    uint16_t seq : 14;
-    uint8_t padding : 2;
+    uint16_t seq : 16;
+    // uint8_t padding : 2;
     char sdu[BUFSIZE-4];
 }__attribute__((packed));
+
+struct seq_link{
+    uint8_t port;
+    uint8_t mip;
+    int seq;
+};
 
 struct host{
     uint8_t port;
     int fd_index;
-    int seq_recv;
+    struct seq_link seq_link[MAX_LINKS];
     int seq_send;
     struct message_node *message_queue;
 };

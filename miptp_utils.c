@@ -139,7 +139,9 @@ void forward_to_mip(int mip_daemon, int application, struct host *host){
     struct miptp_pdu *miptp_pdu = (struct miptp_pdu*)packet->msg;
 
     miptp_pdu->dst_port = buffer_up[1];
-    miptp_pdu->seq = htons(host->seq_send);
+    miptp_pdu->seq = htons((host->seq_send << 2) | rest);
+    printf("1 %d\n", host->seq_send);
+    printf("2 %d\n\n", ntohs(miptp_pdu->seq) >> 2);
     //take care of overflow
     if (host->seq_send == 1 << 14){
         host->seq_send = 0;
@@ -200,7 +202,7 @@ void resend_window(struct message_node *queue, struct pollfd *mip_daemon){
     gettimeofday(&time, NULL);
     struct message_node *current_node = queue;
     int i = 0;
-    while (i < 17 && current_node->next != NULL) {
+    while (i < 16 && current_node->next != NULL) {
         current_node = current_node->next;
         current_node->time = time;
         write(mip_daemon->fd, &current_node->packet, current_node->size);
@@ -230,6 +232,24 @@ void send_next(struct pollfd *mip_daemon, struct host *host){
     }
 }
 
+int* seq_exp(struct host *host, uint8_t src_mip, uint8_t src_port){
+    /*
+    * finds the sequence number to a mip and port and a host
+
+    * host: application
+    * src_mip: senders mip
+    * src_port: senders port
+
+    * returns: the sequence number
+    */
+    for (int i=0; i<MAX_LINKS; i++){
+        if (host->seq_link[i].port == src_port && host->seq_link[i].mip == src_mip){
+            return &host->seq_link[i].seq;
+        }
+    }
+    return NULL;
+}
+
 void read_message(struct pollfd *mip_daemon, struct host *hosts, int num_hosts, struct pollfd *applications){
     /*
     * reads a message and checks if its an ACK or a message for an app. Then treats it accordingly. 
@@ -246,7 +266,8 @@ void read_message(struct pollfd *mip_daemon, struct host *hosts, int num_hosts, 
     uint8_t src_port = tp_pdu->src_port;
     uint8_t src_mip = packet_received->mip;
     uint8_t dst_port = tp_pdu->dst_port;
-    uint16_t seq = ntohs(tp_pdu->seq);
+    uint16_t seq = ntohs(tp_pdu->seq)>>2;
+    printf("seq %d\n", seq);
 
     int index_of_app = index_of_port(dst_port, hosts, num_hosts);
     if (memcmp(tp_pdu->sdu, "ACK", 3) == 0){
@@ -260,16 +281,20 @@ void read_message(struct pollfd *mip_daemon, struct host *hosts, int num_hosts, 
     }
     else { //its a message for an app
         int app_fd = applications[index_of_app].fd;
-        int *exp_seq = &hosts[index_of_app].seq_recv;
+        int *exp_seq = seq_exp(&hosts[index_of_app], src_mip, src_port);
         send_ack(mip_daemon, src_port, src_mip, seq, dst_port);
+
         // not expected seq, ignore
-        if (seq != *exp_seq && *exp_seq != -1){
+        if (exp_seq != NULL && seq != *exp_seq){
             return;
         }
 
         //first packet, sets seq
-        if (*exp_seq == -1) {
-            *exp_seq = seq;
+        if (exp_seq == NULL) {
+            hosts[index_of_app].seq_link->seq = seq;
+            hosts[index_of_app].seq_link->mip = src_mip;
+            hosts[index_of_app].seq_link->port = src_port;
+            exp_seq = &hosts[index_of_app].seq_link->seq;
         }
 
         //increase exp_seq

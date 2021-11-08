@@ -51,7 +51,7 @@ int main(int argc, char* argv[]){
                 int x;
                 //and the first message has timed out
                 if ((x = (current_time.tv_sec - hosts[i].message_queue->next->time.tv_sec)) > timeout_secs){
-                    printf("RESEND %d\n", hosts[i].message_queue->next->packet.msg[2]);
+                    printf("RESEND\n");
                     //resend the window
                     resend_window(hosts[i].message_queue, mip_daemon);
                 }
@@ -73,8 +73,8 @@ int main(int argc, char* argv[]){
 
             struct host new_host;
             new_host.fd_index = num_hosts;
-            new_host.seq_send = 0; //rand(); 
-            new_host.seq_recv = -1;
+            new_host.seq_send = 1383; //rand() % (1<<14); 
+            memset(&new_host.seq_link, -1, MAX_LINKS);
 
             struct message_node *new_node = malloc(sizeof(struct message_node));
             new_node->next = NULL;

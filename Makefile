@@ -65,6 +65,7 @@ MIPTP_DAEMON_D = ./miptp_daemon ${TIMEOUT} ${SOCK_D} ${MIPTP_SOCK_D}
 MIPTP_DAEMON_E = ./miptp_daemon ${TIMEOUT} ${SOCK_E} ${MIPTP_SOCK_E}
 
 FILE_TRANSFER_A = ./file_transfer ${FILE_TO_SEND} ${MIPTP_SOCK_A} ${MIP_C} ${PORT_C}
+FILE_TRANSFER_B = ./file_transfer test2 ${MIPTP_SOCK_B} ${MIP_C} ${PORT_C}
 
 FILE_SERVER_B = ./file_server ${PORT_B} ${MIPTP_SOCK_B} ${RECEIVE_DIRECTORY}
 
@@ -171,7 +172,7 @@ runMiptpB: miptp_daemon
 	${MIPTP_DAEMON_B}
 
 runMiptpC: miptp_daemon
-	${MIPTP_DAEMON_C}
+	${VALGRIND} ${MIPTP_DAEMON_C}
 
 runFTA: file_transfer
 	${FILE_TRANSFER_A}
