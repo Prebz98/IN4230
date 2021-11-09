@@ -50,6 +50,7 @@ int argparser(int argc, char **argv, char *path_to_file, char *path_to_miptp, ui
 }
 
 int main(int argc, char* argv[]){
+    printf("\n%s\n", LINE);
     char path_to_file[BUFSIZE];
     char path_to_miptp[BUFSIZE];
     uint8_t dst_mip;
@@ -90,6 +91,7 @@ int main(int argc, char* argv[]){
     fseek(fp, 0L, SEEK_END);
     uint32_t file_size = ftell(fp);
     uint32_t *sdu = (uint32_t*)packet->sdu;
+    printf("SIZE to send: %d\n", file_size);
     *sdu = htonl(file_size);
     write(miptp_fd, buffer, 2+sizeof(unsigned long));
     rewind(fp);

@@ -9,7 +9,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include "file_transfer.h"
-
+#include <sys/stat.h>
 
 int argparser(int argc, char **argv, uint8_t *port, char *path_to_miptp, char *directory){
     /*
@@ -70,6 +70,12 @@ int main(int argc, char* argv[]){
     }
     printf("Port number accepted\n");
 
+    /* check if dir exists */
+    struct stat st = {0};
+    if (stat(path_directory, &st) == -1) {
+        mkdir(path_directory, 0777);
+    }
+
     while (!done) {
         memset(buffer, 0, BUFSIZE);
         int rc = read_from_socket(miptp_fd, buffer);
@@ -83,11 +89,12 @@ int main(int argc, char* argv[]){
 
         if (index == -1){ //if not known
             uint32_t file_size = ntohl(*(uint32_t*)packet->sdu);
+            printf("File size to receive: %d\n", file_size);
             create_new_link(packet->port, packet->mip, file_size, links, &link_len);
         }
         else { //sender is known
             FILE *file = get_file(packet->port, packet->mip, links, link_len);
-            fprintf(file, "%s", packet->sdu);
+            fwrite(packet->sdu, rc-2, 1, file);
 
             uint32_t packet_len = strlen(packet->sdu);
             uint32_t *bytes_left = &links[index].file_size;
@@ -99,5 +106,4 @@ int main(int argc, char* argv[]){
         }
         
     }
-    // close_files(links, link_len);
 }

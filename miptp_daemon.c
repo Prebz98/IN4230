@@ -25,6 +25,7 @@ int main(int argc, char* argv[]){
     srand(time(NULL)); //seed random number
 
     struct host hosts[MAX_LINKS]; //list with application hosts
+    memset(hosts, 0, MAX_LINKS*sizeof(struct host));
     int num_hosts = 0;
 
     struct pollfd fds[MAX_NODES]; 
@@ -51,7 +52,7 @@ int main(int argc, char* argv[]){
                 int x;
                 //and the first message has timed out
                 if ((x = (current_time.tv_sec - hosts[i].message_queue->next->time.tv_sec)) > timeout_secs){
-                    printf("RESEND\n");
+                    printf("Seq %d timeout. Resending window.\n", hosts[i].message_queue->next->seq);
                     //resend the window
                     resend_window(hosts[i].message_queue, mip_daemon);
                 }
@@ -73,8 +74,10 @@ int main(int argc, char* argv[]){
 
             struct host new_host;
             new_host.fd_index = num_hosts;
-            new_host.seq_send = 1383; //rand() % (1<<14); 
-            memset(&new_host.seq_link, -1, MAX_LINKS);
+            new_host.seq_send = rand() % (1<<14); 
+            new_host.port = 0;
+            new_host.num_seq_link = 0;
+            memset(&new_host.seq_link, -1, MAX_LINKS*sizeof(struct seq_link));
 
             struct message_node *new_node = malloc(sizeof(struct message_node));
             new_node->next = NULL;
@@ -120,4 +123,7 @@ int main(int argc, char* argv[]){
         }
     }
     //clear malloced message queues
+    for (int i=0; i<num_hosts; i++) {
+        clear_queue(hosts[i].message_queue);
+    }
 }

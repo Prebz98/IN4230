@@ -157,7 +157,7 @@ void forward_to_mip(int mip_daemon, int application, struct host *host){
     struct message_node *new_node = malloc(sizeof(struct message_node));
     new_node->packet = *packet;
     new_node->next = NULL;
-    new_node->seq = ntohs(miptp_pdu->seq) >> 2; //miptp_pdu->seq;
+    new_node->seq = ntohs(miptp_pdu->seq) >> 2;
     struct timeval time;
     gettimeofday(&time, NULL);
     new_node->time = time;
@@ -165,7 +165,7 @@ void forward_to_mip(int mip_daemon, int application, struct host *host){
 
     add_to_queue(new_node, host->message_queue);
     //send now if its in the current window
-    if ((ntohs(miptp_pdu->seq) - host->message_queue->next->seq) < 16){
+    if (((ntohs(miptp_pdu->seq)>>2) - host->message_queue->next->seq) < 16){
         write(mip_daemon, buffer_down, size);
     }
 }
@@ -187,6 +187,22 @@ int index_of_port(uint8_t port, struct host *hosts, int num_hosts){
         }
     }
     return -1;
+}
+
+void clear_queue(struct message_node *queue){
+    /*
+    * clear the message queue
+
+    * queue: the linked list message queue
+    */
+    struct message_node *current_node = queue;
+    struct message_node *next_node = queue;
+    while (current_node->next != NULL) {
+        next_node = current_node->next;
+        free(current_node);
+        current_node = next_node;
+    }
+    free(current_node);
 }
 
 void resend_window(struct message_node *queue, struct pollfd *mip_daemon){
@@ -229,7 +245,7 @@ void send_next(struct pollfd *mip_daemon, struct host *host){
     }
 }
 
-int* seq_exp(struct host *host, uint8_t src_mip, uint8_t src_port){
+uint32_t* seq_exp(struct host *host, uint8_t src_mip, uint8_t src_port){
     /*
     * finds the sequence number to a mip and port and a host
 
@@ -239,7 +255,7 @@ int* seq_exp(struct host *host, uint8_t src_mip, uint8_t src_port){
 
     * returns: the sequence number
     */
-    for (int i=0; i<MAX_LINKS; i++){
+    for (int i=0; i<host->num_seq_link; i++){
         if (host->seq_link[i].port == src_port && host->seq_link[i].mip == src_mip){
             return &host->seq_link[i].seq;
         }
@@ -278,7 +294,7 @@ void read_message(struct pollfd *mip_daemon, struct host *hosts, int num_hosts, 
     }
     else { //its a message for an app
         int app_fd = applications[index_of_app].fd;
-        int *exp_seq = seq_exp(&hosts[index_of_app], src_mip, src_port);
+        uint32_t *exp_seq = seq_exp(&hosts[index_of_app], src_mip, src_port);
         send_ack(mip_daemon, src_port, src_mip, seq, dst_port);
 
         // not expected seq, ignore
@@ -288,10 +304,12 @@ void read_message(struct pollfd *mip_daemon, struct host *hosts, int num_hosts, 
 
         //first packet, sets seq
         if (exp_seq == NULL) {
-            hosts[index_of_app].seq_link->seq = seq;
-            hosts[index_of_app].seq_link->mip = src_mip;
-            hosts[index_of_app].seq_link->port = src_port;
-            exp_seq = &hosts[index_of_app].seq_link->seq;
+            int *num_seq = &hosts[index_of_app].num_seq_link; 
+            hosts[index_of_app].seq_link[*num_seq].seq = seq;
+            hosts[index_of_app].seq_link[*num_seq].mip = src_mip;
+            hosts[index_of_app].seq_link[*num_seq].port = src_port;
+            exp_seq = &hosts[index_of_app].seq_link[*num_seq].seq;
+            *num_seq = *num_seq +1;
         }
 
         //increase exp_seq
@@ -304,7 +322,6 @@ void read_message(struct pollfd *mip_daemon, struct host *hosts, int num_hosts, 
         struct app_pdu *message_to_send = (struct app_pdu*)tp_pdu->sdu;
         message_to_send->mip = src_mip;
         message_to_send->port = src_port;
-
         write(app_fd, message_to_send, rc-2-4-padding); // 2 bytes removed from unix_packet to miptp_pdu
         //4 removed from miptp_pdy to app_pdu and remove padding
     }

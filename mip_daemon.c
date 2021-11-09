@@ -613,7 +613,9 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                 } 
                 //its a MIPTP message for me
                 else if (hdr->sdu_type == 0x05 && hdr->dst == mip_addr) {
-                    printf("I have received a MIPTP message!\n");
+                    if (debug_mode){
+                        printf("I have received a MIPTP message!\n");
+                    }
                     int index = sizeof(struct mip_hdr);
                     char *translation = (char*)raw_buffer; 
                     int total_size = hdr->sdu_len*4;
@@ -639,7 +641,6 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                         add_to_waiting_queue(routing_queue, packet_to_save);
 
                         send_req_to_router(mip_addr, hdr->dst, fds[3].fd);
-                        printf("Message passed along\n");
                     }
                 }
                 // its a routing message
@@ -710,7 +711,9 @@ void poll_loop(struct pollfd *fds, int timeout_msecs, int sock_server, uint8_t m
                 //creating message
                 memcpy(packet_to_save.sdu, up->msg, size);
                 add_to_waiting_queue(routing_queue, packet_to_save);
-                printf("Will send a message!\n");
+                if (debug_mode){
+                    printf("Will send a message!\n");
+                }
             }
         }
     }

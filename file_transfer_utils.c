@@ -53,6 +53,7 @@ void create_new_link(uint8_t port, uint8_t mip, uint32_t file_size, struct link 
     * links: active links
     * link_len: length of links
     */
+
     struct link new;
     new.mip = mip;
     new.port = port;
@@ -62,7 +63,7 @@ void create_new_link(uint8_t port, uint8_t mip, uint32_t file_size, struct link 
 
 
     FILE *fp;
-    fp = fopen(path, "w");
+    fp = fopen(path, "w+");
     new.file = fp;
 
     links[*link_len] = new;

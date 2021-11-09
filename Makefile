@@ -72,7 +72,7 @@ FILE_SERVER_B = ./file_server ${PORT_B} ${MIPTP_SOCK_B} ${RECEIVE_DIRECTORY}
 FILE_SERVER_C = ./file_server ${PORT_C} ${MIPTP_SOCK_C} ${RECEIVE_DIRECTORY}
 
 all: ping_client mip_daemon ping_server routing_daemon miptp_daemon file_transfer file_server
-clear_received: 
+clear: 
 	rm -r received/*
 
 mip_daemon: mip_daemon.c mip_daemon_utils.c
@@ -166,7 +166,7 @@ runRouterE: routing_daemon
 	${ROUTING_DAEMON_E}
 
 runMiptpA: miptp_daemon
-	${MIPTP_DAEMON_A}
+	${VALGRIND} ${MIPTP_DAEMON_A}
 
 runMiptpB: miptp_daemon
 	${MIPTP_DAEMON_B}
@@ -175,7 +175,7 @@ runMiptpC: miptp_daemon
 	${VALGRIND} ${MIPTP_DAEMON_C}
 
 runFTA: file_transfer
-	${FILE_TRANSFER_A}
+	${VALGRIND} ${FILE_TRANSFER_A}
 
 runFTB: file_transfer
 	${FILE_TRANSFER_B}
@@ -193,7 +193,7 @@ runFSB: file_server
 	${FILE_SERVER_B}
 
 runFSC: file_server
-	${FILE_SERVER_C}
+	${VALGRIND} ${FILE_SERVER_C}
 
 clean: 
 	rm -f *.o ping_client ping_server mip_daemon routing_daemon file_server file_transfer miptp_daemon

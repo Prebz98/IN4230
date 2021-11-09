@@ -16,20 +16,20 @@ struct miptp_pdu{
     uint8_t src_port;
     uint8_t dst_port;
     uint16_t seq;
-    // uint8_t padding : 2;
     char sdu[BUFSIZE-4];
 }__attribute__((packed));
 
 struct seq_link{
     uint8_t port;
     uint8_t mip;
-    int seq;
+    uint32_t seq;
 };
 
 struct host{
     uint8_t port;
     int fd_index;
     struct seq_link seq_link[MAX_LINKS];
+    int num_seq_link;
     int seq_send;
     struct message_node *message_queue;
 };
@@ -53,3 +53,4 @@ int index_of_port(uint8_t port, struct host *hosts, int num_hosts);
 void send_ack(struct pollfd *mip_daemon, uint8_t dst_port, uint8_t dst_mip, uint16_t seq, uint8_t src_port);
 void read_message(struct pollfd *mip_daemon, struct host *hosts, int num_hosts, struct pollfd *applications);
 void resend_window(struct message_node *queue, struct pollfd *mip_daemon);
+void clear_queue(struct message_node *queue);
