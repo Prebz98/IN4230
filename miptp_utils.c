@@ -84,15 +84,14 @@ void send_ack(struct pollfd *mip_daemon, uint8_t dst_port, uint8_t dst_mip, uint
     // fill the packet sdu
     miptp_pdu->dst_port = dst_port;
     miptp_pdu->src_port = src_port;
-    miptp_pdu->seq = seq;
-    memcpy(miptp_pdu->sdu, "ACK", 3);
+    miptp_pdu->seq = htons((seq << 2) | 2); //padding_length is 3 here
 
     // fill the packet header
     packet->mip = dst_mip;
     packet->ttl = 0;
     
 
-    write(mip_daemon->fd, packet, 12);
+    write(mip_daemon->fd, packet, 8);
 }
 
 int add_to_queue(struct message_node *new_node, struct message_node *queue){
@@ -140,8 +139,6 @@ void forward_to_mip(int mip_daemon, int application, struct host *host){
 
     miptp_pdu->dst_port = buffer_up[1];
     miptp_pdu->seq = htons((host->seq_send << 2) | rest);
-    printf("1 %d\n", host->seq_send);
-    printf("2 %d\n\n", ntohs(miptp_pdu->seq) >> 2);
     //take care of overflow
     if (host->seq_send == 1 << 14){
         host->seq_send = 0;
@@ -160,7 +157,7 @@ void forward_to_mip(int mip_daemon, int application, struct host *host){
     struct message_node *new_node = malloc(sizeof(struct message_node));
     new_node->packet = *packet;
     new_node->next = NULL;
-    new_node->seq = ntohs(miptp_pdu->seq);
+    new_node->seq = ntohs(miptp_pdu->seq) >> 2; //miptp_pdu->seq;
     struct timeval time;
     gettimeofday(&time, NULL);
     new_node->time = time;
@@ -267,12 +264,13 @@ void read_message(struct pollfd *mip_daemon, struct host *hosts, int num_hosts, 
     uint8_t src_mip = packet_received->mip;
     uint8_t dst_port = tp_pdu->dst_port;
     uint16_t seq = ntohs(tp_pdu->seq)>>2;
+    uint8_t padding = ntohs(tp_pdu->seq)&3;//getting the 2 last bits
 
     int index_of_app = index_of_port(dst_port, hosts, num_hosts);
-    if (memcmp(tp_pdu->sdu, "ACK", 3) == 0){
+    if (rc == 8 && padding == 2){ // its an ack
         //move window by 1 if there are new messages in the window, and the sequencenumber is what is expected
         struct message_node *old = hosts[index_of_app].message_queue;
-        if (old != NULL && seq==ntohs(hosts[index_of_app].message_queue->next->seq)){
+        if (old != NULL && seq==hosts[index_of_app].message_queue->next->seq){
             hosts[index_of_app].message_queue = hosts[index_of_app].message_queue->next;
             free(old);
             send_next(mip_daemon, &(hosts[index_of_app]));
@@ -307,8 +305,8 @@ void read_message(struct pollfd *mip_daemon, struct host *hosts, int num_hosts, 
         message_to_send->mip = src_mip;
         message_to_send->port = src_port;
 
-        write(app_fd, message_to_send, rc-6); // 2 bytes removed from unix_packet to miptp_pdu
-        //4 removed from miptp_pdy to app_pdu
+        write(app_fd, message_to_send, rc-2-4-padding); // 2 bytes removed from unix_packet to miptp_pdu
+        //4 removed from miptp_pdy to app_pdu and remove padding
     }
 }
 
