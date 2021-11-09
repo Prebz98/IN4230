@@ -166,16 +166,16 @@ runRouterE: routing_daemon
 	${ROUTING_DAEMON_E}
 
 runMiptpA: miptp_daemon
-	${VALGRIND} ${MIPTP_DAEMON_A}
+	${MIPTP_DAEMON_A}
 
 runMiptpB: miptp_daemon
 	${MIPTP_DAEMON_B}
 
 runMiptpC: miptp_daemon
-	${VALGRIND} ${MIPTP_DAEMON_C}
+	${MIPTP_DAEMON_C}
 
 runFTA: file_transfer
-	${VALGRIND} ${FILE_TRANSFER_A}
+	${FILE_TRANSFER_A}
 
 runFTB: file_transfer
 	${FILE_TRANSFER_B}
@@ -193,7 +193,7 @@ runFSB: file_server
 	${FILE_SERVER_B}
 
 runFSC: file_server
-	${VALGRIND} ${FILE_SERVER_C}
+	${FILE_SERVER_C}
 
 clean: 
 	rm -f *.o ping_client ping_server mip_daemon routing_daemon file_server file_transfer miptp_daemon
